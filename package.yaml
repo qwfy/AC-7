@@ -1,14 +1,13 @@
 name:                NEAT
 version:             0.1.0.0
 github:              "qwfy/NEAT"
-license:             BSD3
+license:             MIT
 author:              "Incomplete"
 maintainer:          "incomplete@aixon.co"
-copyright:           "MIT"
+copyright:           "Incomplete 2018"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -26,20 +25,9 @@ library:
   source-dirs: src
 
 executables:
-  NEAT-exe:
-    main:                Main.hs
+  neat:
+    main:                NEAT.hs
     source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - NEAT
-
-tests:
-  NEAT-test:
-    main:                Spec.hs
-    source-dirs:         test
     ghc-options:
     - -threaded
     - -rtsopts
