@@ -8,6 +8,8 @@ where
 
 import qualified Data.UUID
 import qualified Data.UUID.V4
+import qualified System.Random
+import qualified Random
 
 
 -- | Global Innovation Number.
@@ -33,3 +35,24 @@ data Edge = Edge
   , enableStatus :: EnableStatus
   , gin          :: GIN
   }
+
+data Genome = Genome
+  { nodes :: [Node]
+  , edges :: [Edge]
+  }
+
+mutateEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
+mutateEdge old weightMutateP weightRandomRange = do
+  -- mutate weight, according to the section 3.1 of the paper:
+  --
+  -- Connection weights mutate as in any NE system, with each connection either perturbed
+  -- or not at each generation.
+  shouldMutateWeight <- Random.trigger weightMutateP
+  if shouldMutateWeight
+    then do
+      weightDelta <- System.Random.randomRIO weightRandomRange
+      let newWeight = weight old + weightDelta
+          new = old {weight = newWeight}
+      return new
+    else
+      return old
