@@ -58,8 +58,8 @@ data Genome = Genome
   , edges :: [Edge]
   }
 
-mutateEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
-mutateEdge old weightMutateP weightRandomRange = do
+mutateExistingEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
+mutateExistingEdge old weightMutateP weightRandomRange = do
   -- mutate weight, according to the section 3.1 of the paper:
   --
   -- Connection weights mutate as in any NE system, with each connection either perturbed
