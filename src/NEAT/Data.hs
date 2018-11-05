@@ -11,17 +11,18 @@ import qualified System.Random
 import qualified Random
 import qualified Data.Map.Strict as Map
 import qualified Control.Concurrent.STM as STM
+import Control.Concurrent.STM (STM, TVar)
 
 
 -- | Global Innovation Number.
 newtype GIN = GIN Integer
   deriving (Show)
 
-makeGINTVar :: GIN -> IO (STM.TVar GIN)
+makeGINTVar :: GIN -> IO (TVar GIN)
 makeGINTVar initialValue =
   STM.newTVarIO initialValue
 
-increaseGIN :: STM.TVar GIN -> STM.STM GIN
+increaseGIN :: TVar GIN -> STM GIN
 increaseGIN var = do
   GIN oldV <- STM.readTVar var
   let new = GIN (oldV + 1)
@@ -74,7 +75,7 @@ mutateExistingEdge old weightMutateP weightRandomRange = do
     else
       return old
 
-mutateAddNode :: Genome -> STM.TVar GIN -> IO Genome
+mutateAddNode :: Genome -> TVar GIN -> IO Genome
 mutateAddNode old@(Genome {nodes, edges}) ginVar =
   -- according to the section 3.1 of the paper:
   --
