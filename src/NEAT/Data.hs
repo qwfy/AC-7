@@ -5,7 +5,7 @@ module NEAT.Data
   )
 where
 
-import Data.List
+import qualified Data.List
 import qualified Data.UUID
 import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
@@ -37,6 +37,7 @@ newtype NodeId = NodeId Data.UUID.UUID
 
 data EnableStatus = Enabled | Disabled
 
+-- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
   { nodeId :: NodeId
   }
@@ -77,6 +78,7 @@ mutateExistingEdge old weightMutateP weightRandomRange = do
     else
       return old
 
+-- TODO @incomplete: reuse GIN if the same mutation already occurred in the current generation
 mutateAddNode :: Genome -> TVar GIN -> IO Genome
 mutateAddNode old@(Genome {nodes, edges}) ginVar =
   -- according to the section 3.1 of the paper:
@@ -124,6 +126,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
 
       return $ Genome {nodes = newNodes, edges = newEdges}
 
+-- TODO @incomplete: reuse GIN if the same mutation already occurred in the current generation
 mutateAddEdge :: Genome -> TVar GIN -> (Float, Float) -> IO Genome
 mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
   -- according to the section 3.1 of the paper:
@@ -152,3 +155,46 @@ mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
                }
          let newEdges = Vector.snoc edges newEdge
          return $ old {edges = newEdges}
+data Trither a b
+  = Both a b
+  | Left' a
+  | Right' b
+
+increaseIndex _ Nothing = Nothing
+increaseIndex maxIndex (Just i) =
+  if i < maxIndex
+    then Just (i + 1)
+    else Nothing
+
+-- | NB: This function relies on the fact that the edges are monotonically increasing.
+-- TODO @incomplete: should we remove this assumption?
+zipEdges :: Vector Edge -> Vector Edge -> [Trither Edge Edge]
+zipEdges lefts rights =
+  case (Vector.null lefts, Vector.null rights) of
+    (True, True) -> []
+    (True, False) -> map (\edge -> Right' edge) (Vector.toList lefts)
+    (False, True) -> map (\edge -> Left' edge) (Vector.toList rights)
+    (False, False) ->
+      let (_, _, reversed) = Data.List.foldl' (
+            \acc@(lIndex, rIndex, accEdges) _ ->
+              case (lIndex, rIndex) of
+                (Nothing, Nothing) -> acc
+                (ll@(Just li), rr@Nothing) -> (increaseL ll, rr, Left' (lefts Vector.! li) : accEdges)
+                (ll@Nothing, rr@(Just ri)) -> (ll, increaseR rr, Right' (rights Vector.! ri) : accEdges)
+                (ll@(Just li), rr@(Just ri)) ->
+                  case compare li ri of
+                    -- historical markings match
+                    EQ -> (increaseL ll, increaseR rr, Both (lefts Vector.! li) (rights Vector.! ri) : accEdges)
+                    -- 1 2 3 4
+                    -- 1 2 8
+                    LT -> (increaseL ll, rr, Left' (lefts Vector.! li) : accEdges)
+                    -- 1 2 8
+                    -- 1 2 3 4
+                    GT -> (ll, increaseR rr, Right' (rights Vector.! ri) : accEdges)
+            ) (Just 0, Just 0, []) [1 .. lLength + rLength]
+      in reverse reversed
+  where
+    lLength = Vector.length lefts
+    rLength = Vector.length rights
+    increaseL = increaseIndex (lLength - 1)
+    increaseR = increaseIndex (rLength - 1)
