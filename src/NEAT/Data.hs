@@ -7,6 +7,8 @@ where
 
 import qualified Data.UUID
 import qualified Data.UUID.V4
+import qualified Data.Vector as Vector
+import Data.Vector (Vector)
 import qualified System.Random
 import qualified Random
 import qualified Data.Map.Strict as Map
@@ -55,8 +57,7 @@ data Edge = Edge
 
 data Genome = Genome
   { nodes :: Map.Map NodeId Node
-  -- TODO @incomplete: for the edges, maybe use a map and key it with integer?
-  , edges :: [Edge]
+  , edges :: Vector Edge
   }
 
 mutateExistingEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
@@ -88,7 +89,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
     then return old
     else do
       index <- System.Random.randomRIO (0, length edges - 1)
-      let edge = edges !! index
+      let edge = edges Vector.! index
       -- TODO @incomplete: what if the edge is already disabled?
       let disabledEdge = edge {enableStatus = Disabled}
       newNode <- makeNode
@@ -116,13 +117,8 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
 
       let newNodes = Map.insert (nodeId newNode) newNode nodes
 
-      -- about the take and drop, say:
-      -- index = 2, edges = [a b .c. d e]
-      -- should take (2 = index)
-      -- should drop (3 = index + 1)
-      --
       -- NB: the order is significant
-      -- TODO @incomplete: a more efficient implementation
-      let newEdges = (take index edges) ++ [disabledEdge] ++ (drop (index+1) edges) ++ [edgeToNew, edgeFromNew]
+      let newEdges = Vector.update edges (Vector.singleton (index, disabledEdge))
+      let newEdges = newEdges Vector.++ Vector.fromList [edgeToNew, edgeFromNew]
 
       return $ Genome {nodes = newNodes, edges = newEdges}
