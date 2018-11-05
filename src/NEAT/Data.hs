@@ -5,6 +5,7 @@ module NEAT.Data
   )
 where
 
+import Data.List
 import qualified Data.UUID
 import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
@@ -122,3 +123,32 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
       let newEdges = newEdges Vector.++ Vector.fromList [edgeToNew, edgeFromNew]
 
       return $ Genome {nodes = newNodes, edges = newEdges}
+
+mutateAddEdge :: Genome -> TVar GIN -> (Float, Float) -> IO Genome
+mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
+  -- according to the section 3.1 of the paper:
+  --
+  -- In the add connection mutation, a single new connection gene with
+  -- a random weight is added connecting two previously unconnected nodes.
+  let nodeIds = Map.keys nodes
+      allPairs = [(f, t) | f <- nodeIds, t <- nodeIds]
+      connectedPairs = Vector.toList $ Vector.map (\edge -> (inNodeId edge, outNodeId edge)) edges
+      -- TODO @incomplete: can this be more efficient?
+      unconnectedPairs = allPairs Data.List.\\ connectedPairs
+  in if null unconnectedPairs
+       then return old
+       else do
+         let maxIndex = length unconnectedPairs - 1
+         index <- System.Random.randomRIO (0, maxIndex)
+         newGIN <- STM.atomically $ increaseGIN ginVar
+         newWeight <- System.Random.randomRIO weightRange
+         let (fromNodeId, toNodeId) = unconnectedPairs !! index
+         let newEdge = Edge
+               { inNodeId = fromNodeId
+               , outNodeId = toNodeId
+               , weight = newWeight
+               , enableStatus = Enabled
+               , gin = newGIN
+               }
+         let newEdges = Vector.snoc edges newEdge
+         return $ old {edges = newEdges}
