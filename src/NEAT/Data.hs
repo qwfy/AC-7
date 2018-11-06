@@ -1,10 +1,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
 
 module NEAT.Data
   ( makeGINTVar
   )
 where
 
+import qualified Data.Maybe
 import qualified Data.List
 import qualified Data.UUID
 import qualified Data.UUID.V4
@@ -15,6 +17,8 @@ import qualified Random
 import qualified Data.Map.Strict as Map
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
+
+import Util
 
 
 -- | Global Innovation Number.
@@ -155,6 +159,7 @@ mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
                }
          let newEdges = Vector.snoc edges newEdge
          return $ old {edges = newEdges}
+
 data Trither a b
   = Both a b
   | Left' a
@@ -198,3 +203,51 @@ zipEdges lefts rights =
     rLength = Vector.length rights
     increaseL = increaseIndex (lLength - 1)
     increaseR = increaseIndex (rLength - 1)
+
+
+cross :: (Genome, Float) -> (Genome, Float) -> IO Genome
+cross (left, leftFitness) (right, rightFitness) = do
+  let alignedEdges = zipEdges (edges left) (edges right)
+  -- this is a list of random bools used to break ties
+  triggers <- Random.triggers (length alignedEdges) (Random.P 0.5)
+
+  let winner = case compare leftFitness rightFitness of
+        EQ -> Nothing
+        LT -> Just (Right ())
+        GT -> Just (Left ())
+
+  let pickLeft edge =
+        (edge, [nodes left Map.! inNodeId edge, nodes left Map.! outNodeId edge])
+
+  let pickRight edge =
+        (edge, [nodes right Map.! inNodeId edge, nodes right Map.! outNodeId edge])
+
+  -- TODO @incomplete: confirm that the node is calculated correctly
+  let (finalEdges, dupNodes) =
+        zip triggers alignedEdges
+          |> map (\case
+              (isLeft, Both l r) ->
+                Just $ if isLeft then pickLeft l else pickRight r
+              (isLeft, Left' l) ->
+                case winner of
+                  Just (Left ()) -> Just $ pickLeft l
+                  Just (Right ()) -> Nothing
+                  -- in the case of a tie, each conflict position is picked independently
+                  Nothing -> if isLeft then Just (pickLeft l) else Nothing
+              (isLeft, Right' r) ->
+                case winner of
+                  Just (Left ()) -> Nothing
+                  Just (Right ()) -> Just $ pickRight r
+                  -- in the case of a tie, each conflict position is picked independently
+                  Nothing -> if isLeft then Nothing else Just (pickRight r))
+          |> filter Data.Maybe.isJust |> map Data.Maybe.fromJust
+          |> unzip
+
+  let finalNodes = foldr (\node acc -> Map.insert (nodeId node) node acc) Map.empty (concat dupNodes)
+
+  let child = Genome
+        { nodes = finalNodes
+        , edges = Vector.fromList finalEdges
+        }
+
+  return child
