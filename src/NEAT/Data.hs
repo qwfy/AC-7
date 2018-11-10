@@ -160,10 +160,12 @@ mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
          let newEdges = Vector.snoc edges newEdge
          return $ old {edges = newEdges}
 
+data Mismatch = Disjoint | Excess
+
 data Trither a b
   = Both a b
-  | Left' a
-  | Right' b
+  | Sinistra Mismatch a
+  | Destra Mismatch b
 
 increaseIndex _ Nothing = Nothing
 increaseIndex maxIndex (Just i) =
@@ -177,25 +179,25 @@ zipEdges :: Vector Edge -> Vector Edge -> [Trither Edge Edge]
 zipEdges lefts rights =
   case (Vector.null lefts, Vector.null rights) of
     (True, True) -> []
-    (True, False) -> map (\edge -> Right' edge) (Vector.toList lefts)
-    (False, True) -> map (\edge -> Left' edge) (Vector.toList rights)
+    (True, False) -> map (Destra Excess) (Vector.toList lefts)
+    (False, True) -> map (Sinistra Excess) (Vector.toList rights)
     (False, False) ->
       let (_, _, reversed) = Data.List.foldl' (
             \acc@(lIndex, rIndex, accEdges) _ ->
               case (lIndex, rIndex) of
                 (Nothing, Nothing) -> acc
-                (ll@(Just li), rr@Nothing) -> (increaseL ll, rr, Left' (lefts Vector.! li) : accEdges)
-                (ll@Nothing, rr@(Just ri)) -> (ll, increaseR rr, Right' (rights Vector.! ri) : accEdges)
+                (ll@(Just li), rr@Nothing) -> (increaseL ll, rr, Sinistra Excess (lefts Vector.! li) : accEdges)
+                (ll@Nothing, rr@(Just ri)) -> (ll, increaseR rr, Destra Excess (rights Vector.! ri) : accEdges)
                 (ll@(Just li), rr@(Just ri)) ->
                   case compare li ri of
                     -- historical markings match
                     EQ -> (increaseL ll, increaseR rr, Both (lefts Vector.! li) (rights Vector.! ri) : accEdges)
                     -- 1 2 3 4
                     -- 1 2 8
-                    LT -> (increaseL ll, rr, Left' (lefts Vector.! li) : accEdges)
+                    LT -> (increaseL ll, rr, Sinistra Disjoint (lefts Vector.! li) : accEdges)
                     -- 1 2 8
                     -- 1 2 3 4
-                    GT -> (ll, increaseR rr, Right' (rights Vector.! ri) : accEdges)
+                    GT -> (ll, increaseR rr, Destra Disjoint (rights Vector.! ri) : accEdges)
             ) (Just 0, Just 0, []) [1 .. lLength + rLength]
       in reverse reversed
   where
@@ -228,13 +230,13 @@ cross (left, leftFitness) (right, rightFitness) = do
           |> map (\case
               (isLeft, Both l r) ->
                 Just $ if isLeft then pickLeft l else pickRight r
-              (isLeft, Left' l) ->
+              (isLeft, Sinistra _ l) ->
                 case winner of
                   Just (Left ()) -> Just $ pickLeft l
                   Just (Right ()) -> Nothing
                   -- in the case of a tie, each conflict position is picked independently
                   Nothing -> if isLeft then Just (pickLeft l) else Nothing
-              (isLeft, Right' r) ->
+              (isLeft, Destra _ r) ->
                 case winner of
                   Just (Left ()) -> Nothing
                   Just (Right ()) -> Just $ pickRight r
@@ -251,3 +253,24 @@ cross (left, leftFitness) (right, rightFitness) = do
         }
 
   return child
+
+compatibility :: (Float, Float, Float) -> Genome -> Genome -> Float
+compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
+  let n' = max (Vector.length edgesA) (Vector.length edgesB)
+      -- TODO @incomplete: make this configurable
+      n = fromIntegral $ if n' < 20 then 1 else n'
+      (nExcesses, nDisjoints, diffs) = Data.List.foldl' (\(accNE, accND, accDiffs) trither ->
+        case trither of
+          Both n1 n2 ->
+            -- TODO @incomplete: the paper does not mention abs
+            let delta = abs (weight n1 - weight n2)
+            in (accNE, accND, delta:accDiffs)
+          Sinistra Disjoint _ -> (accNE, accND+1, accDiffs)
+          Destra Disjoint _   -> (accNE, accND+1, accDiffs)
+          Sinistra Excess _   -> (accNE+1, accND, accDiffs)
+          Destra Excess _     -> (accNE+1, accND, accDiffs)
+        ) (0, 0, []) (zipEdges edgesA edgesB)
+      meanDiff = sum diffs / fromIntegral (length diffs)
+  in c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
+
+
