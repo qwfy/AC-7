@@ -42,3 +42,12 @@ data Trither a b
   = Both a b
   | Sinistra Mismatch a
   | Destra Mismatch b
+
+
+type Population = Vector Genome
+
+data Config = Config
+  { name :: String
+  , initPopulation :: Int
+  , weightRange :: (Float, Float)
+  , guessedGenerations :: Int}

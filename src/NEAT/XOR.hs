@@ -1,21 +1,18 @@
 module NEAT.XOR
-  ( name
-  , fitness
-  , guessedGenerations
-  , guessedInitPopulation
+  ( fitness
+  , config
   )
 where
 
 import qualified NEAT.Data
 
-name :: String
-name = "XOR"
-
-guessedGenerations :: Int
-guessedGenerations = 100
-
-guessedInitPopulation :: Int
-guessedInitPopulation = 100
+config :: NEAT.Data.Config
+config = NEAT.Data.Config
+  { NEAT.Data.name = "XOR"
+  , NEAT.Data.initPopulation = 100
+  , NEAT.Data.guessedGenerations = 50
+  , NEAT.Data.weightRange = (-1.0, 1.0)
+  }
 
 fitness :: NEAT.Data.Genome -> Float
 fitness = undefined

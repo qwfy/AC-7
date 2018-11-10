@@ -15,6 +15,7 @@ import qualified NEAT.XOR as Problem
 main :: IO ()
 main = do
   putStrLn . (Data.List.intercalate " ") $
-    ["solving problem:", Problem.name, "using NEAT"]
-  initPopulation <- NEAT.Algo.makePopulation Problem.guessedInitPopulation
-  NEAT.Algo.simulate initPopulation Problem.fitness Problem.guessedGenerations
+    ["solving problem:", (NEAT.Data.name Problem.config), "using NEAT"]
+  ginVar <- NEAT.Algo.makeGINTVar (NEAT.Data.GIN 0)
+  initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
+  NEAT.Algo.simulate initPopulation Problem.fitness Problem.config

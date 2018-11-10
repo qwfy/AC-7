@@ -3,7 +3,8 @@
 
 module NEAT.Algo
   ( simulate
-  , makePopulation
+  , makeInitPopulation
+  , makeGINTVar
   )
 where
 
@@ -26,8 +27,6 @@ import NEAT.Data
 -- simulate :: population (Genome -> Float) -> Int -> IO ()
 simulate = undefined
 
-makePopulation = undefined
-
 makeGINTVar :: GIN -> IO (TVar GIN)
 makeGINTVar initialValue =
   STM.newTVarIO initialValue
@@ -44,12 +43,34 @@ makeNode = do
   nodeId <- Data.UUID.V4.nextRandom
   return $ Node {nodeId = NodeId nodeId}
 
+-- | Make a genome for the initial population, according to the section 3.4 of the paper:
+--
+-- In contrast, NEAT biases the search towards minimal-dimensional spaces
+-- by starting out with a uniform population of networks with zero hidden nodes
+-- (i.e., all inputs connect directly to putputs).
+makeInitGenome :: (Float, Float) -> TVar GIN -> IO Genome
+makeInitGenome weightRange ginVar = do
+  inNode <- makeNode
+  outNode <- makeNode
+  weight <- System.Random.randomRIO weightRange
+  gin <- STM.atomically $ increaseGIN ginVar
+  let edge = Edge
+        { inNodeId = nodeId inNode
+        , outNodeId = nodeId outNode
+        , weight
+        , enableStatus = Enabled
+        , gin}
+  let genome = Genome
+        { nodes = Map.fromList [(nodeId inNode, inNode), (nodeId outNode, outNode)]
+        , edges = Vector.singleton edge}
+  return genome
+
+-- | Mutate weight, according to the section 3.1 of the paper:
+--
+-- Connection weights mutate as in any NE system, with each connection either perturbed
+-- or not at each generation.
 mutateExistingEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
 mutateExistingEdge old weightMutateP weightRandomRange = do
-  -- mutate weight, according to the section 3.1 of the paper:
-  --
-  -- Connection weights mutate as in any NE system, with each connection either perturbed
-  -- or not at each generation.
   shouldMutateWeight <- Random.trigger weightMutateP
   if shouldMutateWeight
     then do
@@ -244,3 +265,7 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
         ) (0, 0, []) (zipEdges edgesA edgesB)
       meanDiff = sum diffs / fromIntegral (length diffs)
   in c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
+
+makeInitPopulation :: Config -> TVar GIN -> IO Population
+makeInitPopulation Config{initPopulation, weightRange} ginVar =
+  Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)
