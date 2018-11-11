@@ -9,8 +9,7 @@ module NEAT.Algo
 where
 
 import qualified Data.Maybe
-import qualified Data.List
-import qualified Data.List
+import Data.List
 import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
@@ -138,7 +137,7 @@ mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
       allPairs = [(f, t) | f <- nodeIds, t <- nodeIds]
       connectedPairs = Vector.toList $ Vector.map (\edge -> (inNodeId edge, outNodeId edge)) edges
       -- TODO @incomplete: can this be more efficient?
-      unconnectedPairs = allPairs Data.List.\\ connectedPairs
+      unconnectedPairs = allPairs \\ connectedPairs
   in if null unconnectedPairs
        then return old
        else do
@@ -171,7 +170,7 @@ zipEdges lefts rights =
     (True, False) -> map (Destra Excess) (Vector.toList lefts)
     (False, True) -> map (Sinistra Excess) (Vector.toList rights)
     (False, False) ->
-      let (_, _, reversed) = Data.List.foldl' (
+      let (_, _, reversed) = foldl' (
             \acc@(lIndex, rIndex, accEdges) _ ->
               case (lIndex, rIndex) of
                 (Nothing, Nothing) -> acc
@@ -249,7 +248,7 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
   let n' = max (Vector.length edgesA) (Vector.length edgesB)
       -- TODO @incomplete: make this configurable
       n = fromIntegral $ if n' < 20 then 1 else n'
-      (nExcesses, nDisjoints, diffs) = Data.List.foldl' (\(accNE, accND, accDiffs) trither ->
+      (nExcesses, nDisjoints, diffs) = foldl' (\(accNE, accND, accDiffs) trither ->
         case trither of
           Both n1 n2 ->
             -- TODO @incomplete: the paper does not mention abs
@@ -263,6 +262,14 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
       meanDiff = sum diffs / fromIntegral (length diffs)
   in c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
 
+-- | Reproduce a species.
+reproduce :: Vector (Genome, Float) -> Int -> IO (Vector Genome)
+reproduce _ 0 = return Vector.empty
+reproduce genomeFitnesses numOffsprings =
+  Vector.replicateM numOffsprings $ do
+    p1Fit <- Random.choose genomeFitnesses
+    p2Fit <- Random.choose genomeFitnesses
+    cross p1Fit p2Fit
 makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)

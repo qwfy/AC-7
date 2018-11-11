@@ -18,8 +18,7 @@ data EnableStatus = Enabled | Disabled
 
 -- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
-  { nodeId :: NodeId
-  }
+  { nodeId :: NodeId}
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
@@ -28,13 +27,11 @@ data Edge = Edge
   , outNodeId    :: NodeId
   , weight       :: Float
   , enableStatus :: EnableStatus
-  , gin          :: GIN
-  }
+  , gin          :: GIN}
 
 data Genome = Genome
   { nodes :: Map.Map NodeId Node
-  , edges :: Vector Edge
-  }
+  , edges :: Vector Edge}
 
 data Mismatch = Disjoint | Excess
 
