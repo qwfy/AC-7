@@ -18,6 +18,7 @@ import qualified Random
 import qualified Data.Map.Strict as Map
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
+import Control.Monad
 
 import Util
 
@@ -25,6 +26,15 @@ import NEAT.Data
 
 -- simulate :: population (Genome -> Float) -> Int -> IO ()
 simulate = undefined
+
+-- TODO @incomplete: Things to consider:
+--
+-- - Interspecies breeding
+-- https://stats.stackexchange.com/questions/272901/do-different-species-create-offspring-neat
+-- This depends mostly on whether you want it to or not. Stanley and Miikkulainen do leave this pretty open, but in the NEAT C++ code which accompanies the paper, there is a parameter named interspecies_mate_rate which is often very low (around %0.1). Also, there is the parameter for stolen_babies which is usually disabled, but would also introduce interspecies breeding.
+-- So to answer your question, you can get away with no interspecies breeding, but the theory of adding it, is that it could allow allow the best of both species to merge.
+-- (It also models what occasionally occurs in nature, and is an interesting consideration)
+
 
 makeGINTVar :: GIN -> IO (TVar GIN)
 makeGINTVar initialValue =
@@ -263,6 +273,7 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
   in c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
 
 -- | Reproduce a species.
+-- TODO @incomplete: choose the best performing r%
 reproduce :: Vector (Genome, Float) -> Int -> IO (Vector Genome)
 reproduce _ 0 = return Vector.empty
 reproduce genomeFitnesses numOffsprings =
@@ -270,6 +281,56 @@ reproduce genomeFitnesses numOffsprings =
     p1Fit <- Random.choose genomeFitnesses
     p2Fit <- Random.choose genomeFitnesses
     cross p1Fit p2Fit
+
+computeFitness :: (Genome -> Float) -> Vector Genome -> Vector (Genome, Float)
+computeFitness fitness species =
+  -- TODO @incomplete: handle empty
+  let population = fromIntegral $ Vector.length species
+  in Vector.map (\g -> (g, fitness g / population)) species
+
+-- TODO @incomplete: this implementation is not confirmed
+speciate :: (Genome -> Float) -> Float -> Vector Genome -> Vector Genome -> Vector (Vector Genome)
+speciate fitness threshold representatives population =
+  let init = Vector.map (\gen -> (gen, Vector.empty)) representatives
+  in foldl' (\accGen idv ->
+       case Vector.findIndex (\(r, _) ->isSameSpecies idv r) accGen of
+         Nothing ->
+           Vector.snoc accGen (idv, Vector.singleton idv)
+         Just i ->
+           let (repre, old) = accGen Vector.! i
+               new = Vector.snoc old idv
+           in accGen Vector.// [(i, (repre, new))]
+       ) init population
+     |> Vector.map snd
+     |> Vector.filter (not . Vector.null)
+  where
+    isSameSpecies a b =
+      abs (fitness a - fitness b) <= threshold
+
+
+evolve ::(Genome -> Float) -> Float -> Vector (Vector Genome) -> Float -> IO (Vector (Vector Genome))
+evolve fitness threshold prevGen compatibilityThreshold = do
+  -- 1. choose the first one of each spicies as the representative of that species
+  -- TODO @incomplete: randomness
+  -- TODO @incomplete: handling empty list
+  let representatives = Vector.map (Vector.! 0) prevGen
+
+  -- 2. compute fitness
+  let withFitnesses = Vector.map (computeFitness fitness) prevGen
+
+  -- 3. compute number of offsprings for each species
+  let speciesTotalFitnesses = Vector.map (Vector.sum . Vector.map snd) withFitnesses
+  let speciesSizes = Vector.map Vector.length prevGen
+  let globalMeanFitness = Vector.sum speciesTotalFitnesses / fromIntegral (Vector.sum speciesSizes)
+  let newSpeciesSizes = Vector.map (ceiling . (/ globalMeanFitness)) speciesTotalFitnesses
+
+  -- 4. reproduce
+  -- TODO @incomplete: elitism
+  newGen' <- Vector.mapM (uncurry reproduce) (Vector.zip withFitnesses newSpeciesSizes)
+  let population = Vector.concat (Vector.toList newGen')
+  let newGen = speciate fitness threshold representatives population
+
+  return newGen
 makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)
