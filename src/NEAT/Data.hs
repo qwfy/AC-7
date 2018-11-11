@@ -12,13 +12,15 @@ newtype GIN = GIN Integer
   deriving (Show)
 
 newtype NodeId = NodeId Data.UUID.UUID
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 data EnableStatus = Enabled | Disabled
+  deriving (Show)
 
 -- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
   { nodeId :: NodeId}
+  deriving (Show)
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
@@ -28,10 +30,12 @@ data Edge = Edge
   , weight       :: Float
   , enableStatus :: EnableStatus
   , gin          :: GIN}
+  deriving (Show)
 
 data Genome = Genome
   { nodes :: Map.Map NodeId Node
   , edges :: Vector Edge}
+  deriving (Show)
 
 data Mismatch = Disjoint | Excess
 
@@ -47,4 +51,5 @@ data Config = Config
   { name :: String
   , initPopulation :: Int
   , weightRange :: (Float, Float)
-  , guessedGenerations :: Int}
+  , guessedGenerations :: Int
+  , threshold :: Float}

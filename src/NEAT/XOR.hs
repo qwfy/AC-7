@@ -12,7 +12,8 @@ config = NEAT.Data.Config
   , NEAT.Data.initPopulation = 100
   , NEAT.Data.guessedGenerations = 50
   , NEAT.Data.weightRange = (-1.0, 1.0)
-  }
+  , NEAT.Data.threshold = 3.0}
 
+-- TODO @incomplete: finish this
 fitness :: NEAT.Data.Genome -> Float
-fitness = undefined
+fitness _ = 3

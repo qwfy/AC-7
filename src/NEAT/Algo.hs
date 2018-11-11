@@ -24,8 +24,6 @@ import Util
 
 import NEAT.Data
 
--- simulate :: population (Genome -> Float) -> Int -> IO ()
-simulate = undefined
 
 -- TODO @incomplete: Things to consider:
 --
@@ -308,8 +306,8 @@ speciate fitness threshold representatives population =
       abs (fitness a - fitness b) <= threshold
 
 
-evolve ::(Genome -> Float) -> Float -> Vector (Vector Genome) -> Float -> IO (Vector (Vector Genome))
-evolve fitness threshold prevGen compatibilityThreshold = do
+evolve ::(Genome -> Float) -> Float -> Vector (Vector Genome) -> IO (Vector (Vector Genome))
+evolve fitness threshold prevGen = do
   -- 1. choose the first one of each spicies as the representative of that species
   -- TODO @incomplete: randomness
   -- TODO @incomplete: handling empty list
@@ -334,3 +332,8 @@ evolve fitness threshold prevGen compatibilityThreshold = do
 makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)
+
+simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> IO (Vector (Vector Genome))
+simulate fitness threshold numGenerations initPopulation = do
+  let initGen = speciate fitness threshold Vector.empty initPopulation
+  foldM (\prevGen _ -> evolve fitness threshold prevGen) initGen [1 .. numGenerations]

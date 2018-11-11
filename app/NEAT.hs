@@ -18,4 +18,6 @@ main = do
     ["solving problem:", (NEAT.Data.name Problem.config), "using NEAT"]
   ginVar <- NEAT.Algo.makeGINTVar (NEAT.Data.GIN 0)
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
-  NEAT.Algo.simulate initPopulation Problem.fitness Problem.config
+  let numGenerations = NEAT.Data.guessedGenerations Problem.config
+  finalGen <- NEAT.Algo.simulate Problem.fitness (NEAT.Data.threshold Problem.config) numGenerations initPopulation
+  print finalGen
