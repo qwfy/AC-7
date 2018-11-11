@@ -109,8 +109,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
             , outNodeId = nodeId newNode
             , weight = 1.0
             , enableStatus = Enabled
-            , gin = ginToNew
-            }
+            , gin = ginToNew}
 
       ginFromNew <- STM.atomically $ increaseGIN ginVar
       let edgeFromNew = Edge
@@ -118,8 +117,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
             , outNodeId = outNodeId disabledEdge
             , weight = weight disabledEdge
             , enableStatus = Enabled
-            , gin = ginFromNew
-            }
+            , gin = ginFromNew}
 
       let newNodes = Map.insert (nodeId newNode) newNode nodes
 
@@ -154,8 +152,7 @@ mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
                , outNodeId = toNodeId
                , weight = newWeight
                , enableStatus = Enabled
-               , gin = newGIN
-               }
+               , gin = newGIN}
          let newEdges = Vector.snoc edges newEdge
          return $ old {edges = newEdges}
 
