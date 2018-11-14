@@ -10,13 +10,17 @@ module NEAT.Vis
 import Data.GraphViz
 import qualified Data.GraphViz.Types.Generalised as G
 import Data.GraphViz.Types.Monadic
-import Data.String
 
 import NEAT.Data
 
 genomeToDot :: Genome -> DotGraph String
 genomeToDot Genome{edges} = G.fromGeneralised $
-  digraph (Str "test") (mapM_ makeEdge edges)
+  digraph (Str "genome") $ do
+    -- TODO @incomplete: hide the label properly
+    nodeAttrs [toLabel (" " :: String)]
+    mapM_ makeEdge edges
   where
-    makeEdge Edge{inNodeId, outNodeId} =
-      fromString (show inNodeId) --> fromString (show outNodeId)
+    makeEdge Edge{inNodeId, outNodeId, weight} = do
+      let a = show inNodeId
+      let b = show outNodeId
+      edge a b [toLabel $ show weight]
