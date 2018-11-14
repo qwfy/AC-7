@@ -20,7 +20,10 @@ genomeToDot Genome{edges} = G.fromGeneralised $
     nodeAttrs [toLabel (" " :: String)]
     mapM_ makeEdge edges
   where
-    makeEdge Edge{inNodeId, outNodeId, weight} = do
+    makeEdge Edge{inNodeId, outNodeId, weight, enableStatus} = do
       let a = show inNodeId
       let b = show outNodeId
-      edge a b [toLabel $ show weight]
+      let c = case enableStatus of
+                Enabled -> Black
+                Disabled -> Gray
+      edge a b [toLabel $ show weight, color c, fontColor c]
