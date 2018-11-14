@@ -17,9 +17,13 @@ newtype NodeId = NodeId Data.UUID.UUID
 data EnableStatus = Enabled | Disabled
   deriving (Show)
 
+data NodeKind = Sensor | Hidden | Output
+  deriving (Show)
+
 -- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
-  { nodeId :: NodeId}
+  { nodeId :: NodeId
+  , kind :: NodeKind}
   deriving (Show)
 
 data Edge = Edge

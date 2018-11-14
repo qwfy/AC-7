@@ -45,10 +45,10 @@ increaseGIN var = do
   STM.writeTVar var new
   return new
 
-makeNode :: IO Node
-makeNode = do
+makeNode :: NodeKind -> IO Node
+makeNode kind = do
   nodeId <- Data.UUID.V4.nextRandom
-  return $ Node {nodeId = NodeId nodeId}
+  return $ Node {nodeId = NodeId nodeId, kind = kind}
 
 -- | Make a genome for the initial population, according to the section 3.4 of the paper:
 --
@@ -57,8 +57,8 @@ makeNode = do
 -- (i.e., all inputs connect directly to putputs).
 makeInitGenome :: (Float, Float) -> TVar GIN -> IO Genome
 makeInitGenome weightRange ginVar = do
-  inNode <- makeNode
-  outNode <- makeNode
+  inNode <- makeNode Sensor
+  outNode <- makeNode Output
   weight <- System.Random.randomRIO weightRange
   gin <- STM.atomically $ increaseGIN ginVar
   let edge = Edge
@@ -105,7 +105,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
       let edge = edges Vector.! index
       -- TODO @incomplete: what if the edge is already disabled?
       let disabledEdge = edge {enableStatus = Disabled}
-      newNode <- makeNode
+      newNode <- makeNode Hidden
 
       -- in -> out
       -- becomes
