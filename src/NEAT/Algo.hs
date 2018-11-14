@@ -8,7 +8,7 @@ module NEAT.Algo
   )
 where
 
-import qualified Data.Maybe
+import Data.Maybe
 import Data.List
 import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
@@ -337,3 +337,24 @@ simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> IO (Vector (Ve
 simulate fitness threshold numGenerations initPopulation = do
   let initGen = speciate fitness threshold Vector.empty initPopulation
   foldM (\prevGen _ -> evolve fitness threshold prevGen) initGen [1 .. numGenerations]
+
+
+-- TODO @incomplete: these fromJust looks dirty
+nodeValue :: Node -> Genome -> [Float] -> Float
+nodeValue n@(Node{kind=Sensor}) Genome{nodes} sensorValues =
+  let nodesAsc = map snd $ Map.toAscList nodes
+      index = fromJust $ elemIndex n nodesAsc
+  in sensorValues !! index
+nodeValue Node{nodeId} genome@(Genome{nodes, edges}) sensorValues =
+  Vector.filter (\edge -> outNodeId edge == nodeId) edges
+    |> Vector.map (\edge -> weight edge * nodeValue (getInNode edge) genome sensorValues)
+    |> Vector.sum
+  where
+    getInNode edge = fromJust $
+      Map.lookup (inNodeId edge) nodes
+
+genomeValue :: Genome -> [Float] -> [Float]
+genomeValue genome@(Genome{nodes}) sensorValues =
+  Map.toAscList nodes
+    |> filter (\(_, node) -> kind node == Output)
+    |> map (\(_, n) -> nodeValue n genome sensorValues)

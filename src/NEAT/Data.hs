@@ -18,13 +18,13 @@ data EnableStatus = Enabled | Disabled
   deriving (Show)
 
 data NodeKind = Sensor | Hidden | Output
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
   { nodeId :: NodeId
   , kind :: NodeKind}
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
