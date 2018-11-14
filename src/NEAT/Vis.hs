@@ -10,13 +10,12 @@ module NEAT.Vis
 import Data.GraphViz
 import qualified Data.GraphViz.Types.Generalised as G
 import Data.GraphViz.Types.Monadic
-import Control.Monad
 import Data.String
 
 import NEAT.Data
 
 genomeToDot :: Genome -> DotGraph String
-genomeToDot (Genome {edges}) = G.fromGeneralised $
+genomeToDot Genome{edges} = G.fromGeneralised $
   digraph (Str "test") (mapM_ makeEdge edges)
   where
     makeEdge Edge{inNodeId, outNodeId} =

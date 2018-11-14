@@ -28,6 +28,7 @@ dependencies:
 - graphviz
 - path
 - path-io
+- time
 
 library:
   source-dirs: src

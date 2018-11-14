@@ -21,17 +21,21 @@ import Control.Monad
 
 import NEAT.Vis
 import Vis
+import Util
 
 main :: IO ()
 main = do
-  putStrLn . (Data.List.intercalate " ") $
-    ["solving problem:", (NEAT.Data.name Problem.config), "using NEAT"]
+  runId <- currentTime
+  putStrLn . unwords $
+    ["starting run:", runId]
+  putStrLn . unwords $
+    ["solving problem:", NEAT.Data.name Problem.config]
   ginVar <- NEAT.Algo.makeGINTVar (NEAT.Data.GIN 0)
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
   let numGenerations = NEAT.Data.guessedGenerations Problem.config
   finalGen <- NEAT.Algo.simulate Problem.fitness (NEAT.Data.threshold Problem.config) numGenerations initPopulation
-  -- TODO @incomplete: do not hard code this
-  Vector.imapM_ (visOneSpecies [absdir|/home/incomplete/temp/neat|]) finalGen
+  visDir <- liftM2 (\a b -> a </> [reldir|visualization|] </> b) getCurrentDir (parseRelDir runId)
+  Vector.imapM_ (visOneSpecies visDir) finalGen
 
 visOneSpecies :: Path Abs Dir -> Int -> Vector NEAT.Data.Genome -> IO ()
 visOneSpecies parentDir speciesId genomes = do

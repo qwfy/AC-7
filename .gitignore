@@ -2,3 +2,4 @@
 NEAT.cabal
 *~
 try.hs
+visualization/*
