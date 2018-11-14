@@ -4,6 +4,8 @@ This is an implementation of
 /Kenneth O. Stanley/ and /Risto Miikkulainen/, <http://nn.cs.utexas.edu/?stanley:ec02>.
 -}
 
+{-# LANGUAGE QuasiQuotes #-}
+
 module Main where
 
 import qualified Data.List
@@ -11,6 +13,14 @@ import qualified Data.List
 import qualified NEAT.Data
 import qualified NEAT.Algo
 import qualified NEAT.XOR as Problem
+import qualified Data.Vector as Vector
+import Data.Vector (Vector)
+import Path
+import Path.IO
+import Control.Monad
+
+import NEAT.Vis
+import Vis
 
 main :: IO ()
 main = do
@@ -20,4 +30,18 @@ main = do
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
   let numGenerations = NEAT.Data.guessedGenerations Problem.config
   finalGen <- NEAT.Algo.simulate Problem.fitness (NEAT.Data.threshold Problem.config) numGenerations initPopulation
-  print finalGen
+  -- TODO @incomplete: do not hard code this
+  Vector.imapM_ (visOneSpecies [absdir|/home/incomplete/temp/neat|]) finalGen
+
+visOneSpecies :: Path Abs Dir -> Int -> Vector NEAT.Data.Genome -> IO ()
+visOneSpecies parentDir speciesId genomes = do
+  speciesDir <- parseRelDir (show speciesId)
+  let dir = parentDir </> speciesDir
+  ensureDir dir
+  Vector.imapM_ (visOneGenome dir) genomes
+
+visOneGenome :: Path Abs Dir -> Int -> NEAT.Data.Genome -> IO ()
+visOneGenome dir genomeId genome = do
+  let dot = genomeToDot genome
+  filename <- parseRelFile (show genomeId)
+  void $ writeSvg dot (dir </> filename)

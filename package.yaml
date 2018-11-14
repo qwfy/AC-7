@@ -25,6 +25,9 @@ dependencies:
 - containers
 - stm
 - vector
+- graphviz
+- path
+- path-io
 
 library:
   source-dirs: src
