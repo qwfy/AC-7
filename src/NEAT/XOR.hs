@@ -5,6 +5,7 @@ module NEAT.XOR
 where
 
 import qualified NEAT.Data
+import qualified NEAT.Algo
 
 config :: NEAT.Data.Config
 config = NEAT.Data.Config
@@ -16,4 +17,9 @@ config = NEAT.Data.Config
 
 -- TODO @incomplete: finish this
 fitness :: NEAT.Data.Genome -> Float
-fitness _ = 3
+fitness genome =
+  let sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
+      truths       = [0,      1,      1,      0     ]
+      predicions = map (!! 0) $ map (\sv -> NEAT.Algo.genomeValue genome sv) sensorValues
+      losses = map (\(a, b) -> abs (a - b)) $ zip truths predicions
+  in (4 - sum losses) ^ 2

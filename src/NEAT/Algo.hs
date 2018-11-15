@@ -5,6 +5,7 @@ module NEAT.Algo
   ( simulate
   , makeInitPopulation
   , makeGINTVar
+  , genomeValue
   )
 where
 
@@ -231,6 +232,9 @@ cross (left, leftFitness) (right, rightFitness) = do
                   Just (Left ()) -> Just $ pickLeft l
                   Just (Right ()) -> Nothing
                   -- in the case of a tie, each conflict position is picked independently
+                  -- TODO @incomplete: this differs from the section 2.2 (aside of Figure 3)
+                  -- of the paper:
+                  -- Efficient Reinforcement Learning through Evolving Neural Network Topologies
                   Nothing -> if isLeft then Just (pickLeft l) else Nothing
               (isLeft, Destra _ r) ->
                 case winner of
