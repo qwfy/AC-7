@@ -91,7 +91,7 @@ mutateExistingEdge old weightMutateP weightRandomRange = do
 
 -- TODO @incomplete: reuse GIN if the same mutation already occurred in the current generation
 mutateAddNode :: Genome -> TVar GIN -> IO Genome
-mutateAddNode old@(Genome {nodes, edges}) ginVar =
+mutateAddNode old@Genome {nodes, edges} ginVar =
   -- according to the section 3.1 of the paper:
   --
   -- In the add node mutation, an existing connection is split and the new node placed
@@ -137,7 +137,7 @@ mutateAddNode old@(Genome {nodes, edges}) ginVar =
 
 -- TODO @incomplete: reuse GIN if the same mutation already occurred in the current generation
 mutateAddEdge :: Genome -> TVar GIN -> (Float, Float) -> IO Genome
-mutateAddEdge old@(Genome {nodes, edges}) ginVar weightRange =
+mutateAddEdge old@Genome{nodes, edges} ginVar weightRange =
   -- according to the section 3.1 of the paper:
   --
   -- In the add connection mutation, a single new connection gene with
@@ -305,7 +305,6 @@ speciate fitness threshold representatives population =
            in accGen Vector.// [(i, (repre, new))]
        ) init population
      |> Vector.map snd
-     |> Vector.filter (not . Vector.null)
   where
     isSameSpecies a b =
       abs (fitness a - fitness b) <= threshold
@@ -316,7 +315,9 @@ evolve fitness threshold prevGen = do
   -- 1. choose the first one of each spicies as the representative of that species
   -- TODO @incomplete: randomness
   -- TODO @incomplete: handling empty list
-  let representatives = Vector.map (Vector.! 0) prevGen
+  let representatives =
+        Vector.filter (not . Vector.null) prevGen
+          |> Vector.map (Vector.! 0)
 
   -- 2. compute fitness
   let withFitnesses = Vector.map (computeFitness fitness) prevGen
