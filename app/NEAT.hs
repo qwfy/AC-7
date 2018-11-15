@@ -46,6 +46,7 @@ visOneSpecies parentDir speciesId genomes = do
 
 visOneGenome :: Path Abs Dir -> Int -> NEAT.Data.Genome -> IO ()
 visOneGenome dir genomeId genome = do
-  let dot = genomeToDot genome
+  let fitness = Problem.fitness genome
+  let dot = genomeToDot genome fitness
   filename <- parseRelFile (show genomeId)
   void $ writeSvg dot (dir </> filename)

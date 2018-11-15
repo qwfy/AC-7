@@ -13,10 +13,11 @@ import Data.GraphViz.Types.Monadic
 
 import NEAT.Data
 
-genomeToDot :: Genome -> DotGraph String
-genomeToDot Genome{edges} = G.fromGeneralised $
+genomeToDot :: Genome -> Float -> DotGraph String
+genomeToDot Genome{edges} fitness = G.fromGeneralised $
   digraph (Str "genome") $ do
     -- TODO @incomplete: hide the label properly
+    graphAttrs [toLabel . show $ fitness]
     nodeAttrs [toLabel (" " :: String)]
     mapM_ makeEdge edges
   where

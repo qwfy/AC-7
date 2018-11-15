@@ -18,8 +18,10 @@ config = NEAT.Data.Config
 -- TODO @incomplete: finish this
 fitness :: NEAT.Data.Genome -> Float
 fitness genome =
-  let sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
-      truths       = [0,      1,      1,      0     ]
-      predicions = map (!! 0) $ map (\sv -> NEAT.Algo.genomeValue genome sv) sensorValues
-      losses = map (\(a, b) -> abs (a - b)) $ zip truths predicions
-  in (4 - sum losses) ^ 2
+  (4 - sum losses) ^ 2
+  where
+    sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
+    truths       = [0,      1,      1,      0     ]
+    -- each node should have at least one output, so the index by 0 is safe
+    predicions = map (!! 0) $ map (\sv -> NEAT.Algo.genomeValue genome sv) sensorValues
+    losses = map (\(a, b) -> abs (a - b)) $ zip truths predicions
