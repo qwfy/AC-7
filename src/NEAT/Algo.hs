@@ -257,22 +257,23 @@ cross (left, leftFitness) (right, rightFitness) = do
 -- | This is the equation (1) in the paper.
 compatibility :: (Float, Float, Float) -> Genome -> Genome -> Float
 compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
-  let n' = max (Vector.length edgesA) (Vector.length edgesB)
-      -- TODO @incomplete: make this configurable
-      n = fromIntegral $ if n' < 20 then 1 else n'
-      (nExcesses, nDisjoints, diffs) = foldl' (\(accNE, accND, accDiffs) trither ->
-        case trither of
-          Both n1 n2 ->
-            -- TODO @incomplete: the paper does not mention abs
-            let delta = abs (weight n1 - weight n2)
-            in (accNE, accND, delta:accDiffs)
-          Sinistra Disjoint _ -> (accNE, accND+1, accDiffs)
-          Destra Disjoint _   -> (accNE, accND+1, accDiffs)
-          Sinistra Excess _   -> (accNE+1, accND, accDiffs)
-          Destra Excess _     -> (accNE+1, accND, accDiffs)
-        ) (0, 0, []) (zipEdges edgesA edgesB)
-      meanDiff = sum diffs / fromIntegral (length diffs)
-  in c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
+  c1 * nExcesses / n + c2 * nDisjoints / n + c3 * meanDiff
+  where
+    n' = max (Vector.length edgesA) (Vector.length edgesB)
+    -- TODO @incomplete: make this configurable
+    n = fromIntegral $ if n' < 20 then 1 else n'
+    (nExcesses, nDisjoints, diffs) = foldl' (\(accNE, accND, accDiffs) trither ->
+      case trither of
+        Both n1 n2 ->
+          -- TODO @incomplete: the paper does not mention abs
+          let delta = abs (weight n1 - weight n2)
+          in (accNE, accND, delta:accDiffs)
+        Sinistra Disjoint _ -> (accNE, accND+1, accDiffs)
+        Destra Disjoint _   -> (accNE, accND+1, accDiffs)
+        Sinistra Excess _   -> (accNE+1, accND, accDiffs)
+        Destra Excess _     -> (accNE+1, accND, accDiffs)
+      ) (0, 0, []) (zipEdges edgesA edgesB)
+    meanDiff = sum diffs / fromIntegral (length diffs)
 
 -- | Reproduce a species.
 -- TODO @incomplete: choose the best performing r%
