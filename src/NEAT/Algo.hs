@@ -333,6 +333,7 @@ evolve fitness threshold prevGen = do
   let newGen = speciate fitness threshold representatives population
 
   return newGen
+
 makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)
@@ -345,11 +346,11 @@ simulate fitness threshold numGenerations initPopulation = do
 
 -- TODO @incomplete: these fromJust looks dirty
 nodeValue :: Node -> Genome -> [Float] -> Float
-nodeValue n@(Node{kind=Sensor}) Genome{nodes} sensorValues =
+nodeValue n@Node{kind=Sensor} Genome{nodes} sensorValues =
   let nodesAsc = map snd $ Map.toAscList nodes
       index = fromJust $ elemIndex n nodesAsc
   in sensorValues !! index
-nodeValue Node{nodeId} genome@(Genome{nodes, edges}) sensorValues =
+nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues =
   Vector.filter (\edge -> outNodeId edge == nodeId) edges
     |> Vector.map (\edge -> weight edge * nodeValue (getInNode edge) genome sensorValues)
     |> Vector.sum
@@ -358,7 +359,7 @@ nodeValue Node{nodeId} genome@(Genome{nodes, edges}) sensorValues =
       Map.lookup (inNodeId edge) nodes
 
 genomeValue :: Genome -> [Float] -> [Float]
-genomeValue genome@(Genome{nodes}) sensorValues =
+genomeValue genome@Genome{nodes} sensorValues =
   Map.toAscList nodes
     |> filter (\(_, node) -> kind node == Output)
     |> map (\(_, n) -> nodeValue n genome sensorValues)
