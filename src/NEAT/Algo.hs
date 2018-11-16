@@ -24,6 +24,10 @@ import Control.Monad
 import Util
 
 import NEAT.Data
+import NEAT.Vis
+import Vis
+import Path
+import Path.IO
 
 
 -- TODO @incomplete: Things to consider:
@@ -343,10 +347,15 @@ makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange, inNodes, outNodes} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
 
-simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> IO (Vector (Vector Genome))
-simulate fitness threshold numGenerations initPopulation = do
+simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> Path Abs Dir -> IO (Vector (Vector Genome))
+simulate fitness threshold numGenerations initPopulation visDir = do
   let initGen = speciate fitness threshold Vector.empty initPopulation
-  foldM (\prevGen _ -> evolve fitness threshold prevGen) initGen [1 .. numGenerations]
+  visOneGen fitness visDir 0 initGen
+  foldM (\prevGen genNum -> do
+    newGen <- evolve fitness threshold prevGen
+    visOneGen fitness visDir genNum newGen
+    return newGen
+    ) initGen [1 .. numGenerations]
 
 
 -- TODO @incomplete: these fromJust looks dirty
@@ -370,3 +379,21 @@ genomeValue genome@Genome{nodes} sensorValues =
   Map.toAscList nodes
     |> filter (\(_, node) -> kind node == Output)
     |> map (\(_, n) -> nodeValue n genome sensorValues)
+
+visOneGen :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector (Vector Genome) -> IO ()
+visOneGen fitness visDir genNumber gen = do
+  genDir <- liftM (visDir </>) (parseRelDir ("generation=" ++ show genNumber))
+  Vector.imapM_ (visOneSpecies fitness genDir) gen
+
+visOneSpecies :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector NEAT.Data.Genome -> IO ()
+visOneSpecies fitness parentDir speciesId genomes = do
+  speciesDir <- parseRelDir ("species=" ++ show speciesId)
+  let dir = parentDir </> speciesDir
+  ensureDir dir
+  Vector.imapM_ (visOneGenome fitness dir) genomes
+
+visOneGenome :: (Genome -> Float) -> Path Abs Dir -> Int -> NEAT.Data.Genome -> IO ()
+visOneGenome fitness dir genomeId genome = do
+  let dot = genomeToDot genome $ fitness genome
+  filename <- parseRelFile ("genome=" ++ show genomeId)
+  void $ writeSvg dot (dir </> filename)
