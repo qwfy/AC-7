@@ -56,21 +56,24 @@ makeNode kind = do
 -- In contrast, NEAT biases the search towards minimal-dimensional spaces
 -- by starting out with a uniform population of networks with zero hidden nodes
 -- (i.e., all inputs connect directly to putputs).
-makeInitGenome :: (Float, Float) -> TVar GIN -> IO Genome
-makeInitGenome weightRange ginVar = do
-  inNode <- makeNode Sensor
-  outNode <- makeNode Output
-  weight <- System.Random.randomRIO weightRange
-  gin <- STM.atomically $ increaseGIN ginVar
-  let edge = Edge
-        { inNodeId = nodeId inNode
-        , outNodeId = nodeId outNode
-        , weight
-        , enableStatus = Enabled
-        , gin}
+makeInitGenome :: (Float, Float) -> Int -> Int -> TVar GIN -> IO Genome
+makeInitGenome weightRange numInNodes numOutNodes ginVar = do
+  inNodes <- replicateM numInNodes $ makeNode Sensor
+  outNodes <- replicateM numOutNodes $ makeNode Output
+  edges <- mapM (\(inNode, outNode) -> do
+    weight <- System.Random.randomRIO weightRange
+    gin <- STM.atomically $ increaseGIN ginVar
+    let edge = Edge
+          { inNodeId = nodeId inNode
+          , outNodeId = nodeId outNode
+          , weight
+          , enableStatus = Enabled
+          , gin}
+    return edge
+    ) (cartesian inNodes outNodes)
   let genome = Genome
-        { nodes = Map.fromList [(nodeId inNode, inNode), (nodeId outNode, outNode)]
-        , edges = Vector.singleton edge}
+        { nodes = Map.fromList $ map (\node -> (nodeId node, node)) (inNodes ++ outNodes)
+        , edges = Vector.fromList edges}
   return genome
 
 -- | Mutate weight, according to the section 3.1 of the paper:
@@ -337,8 +340,8 @@ evolve fitness threshold prevGen = do
   return newGen
 
 makeInitPopulation :: Config -> TVar GIN -> IO Population
-makeInitPopulation Config{initPopulation, weightRange} ginVar =
-  Vector.generateM initPopulation (\_ -> makeInitGenome weightRange ginVar)
+makeInitPopulation Config{initPopulation, weightRange, inNodes, outNodes} ginVar =
+  Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
 
 simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> IO (Vector (Vector Genome))
 simulate fitness threshold numGenerations initPopulation = do

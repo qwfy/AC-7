@@ -56,4 +56,6 @@ data Config = Config
   , initPopulation :: Int
   , weightRange :: (Float, Float)
   , guessedGenerations :: Int
-  , threshold :: Float}
+  , threshold :: Float
+  , inNodes :: Int
+  , outNodes :: Int}
