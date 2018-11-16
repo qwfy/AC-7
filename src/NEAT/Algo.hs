@@ -349,7 +349,9 @@ simulate fitness threshold numGenerations initPopulation = do
 -- TODO @incomplete: these fromJust looks dirty
 nodeValue :: Node -> Genome -> [Float] -> Float
 nodeValue n@Node{kind=Sensor} Genome{nodes} sensorValues =
-  let nodesAsc = map snd $ Map.toAscList nodes
+  let nodesAsc = Map.toAscList nodes
+        |> map snd
+        |> filter ((== Sensor) . kind)
       index = fromJust $ elemIndex n nodesAsc
   in sensorValues !! index
 nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues =

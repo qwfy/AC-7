@@ -10,7 +10,7 @@ import qualified NEAT.Algo
 config :: NEAT.Data.Config
 config = NEAT.Data.Config
   { NEAT.Data.name = "XOR"
-  , NEAT.Data.initPopulation = 100
+  , NEAT.Data.initPopulation = 150
   , NEAT.Data.guessedGenerations = 50
   , NEAT.Data.weightRange = (-1.0, 1.0)
   , NEAT.Data.threshold = 3.0}
