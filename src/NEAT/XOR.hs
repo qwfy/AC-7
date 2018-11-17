@@ -7,8 +7,8 @@ where
 import NEAT.Data
 import qualified NEAT.Algo
 
-config :: NEAT.Data.Config
-config = NEAT.Data.Config
+config :: Config
+config = Config
   { name = "XOR"
   , initPopulation = 150
   , guessedGenerations = 50

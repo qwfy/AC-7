@@ -386,14 +386,14 @@ visOneGen fitness visDir genNumber gen = do
   genDir <- liftM (visDir </>) (parseRelDir ("generation=" ++ show genNumber))
   Vector.imapM_ (visOneSpecies fitness genDir) gen
 
-visOneSpecies :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector NEAT.Data.Genome -> IO ()
+visOneSpecies :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector Genome -> IO ()
 visOneSpecies fitness parentDir speciesId genomes = do
   speciesDir <- parseRelDir ("species=" ++ show speciesId)
   let dir = parentDir </> speciesDir
   ensureDir dir
   Vector.imapM_ (visOneGenome fitness dir) genomes
 
-visOneGenome :: (Genome -> Float) -> Path Abs Dir -> Int -> NEAT.Data.Genome -> IO ()
+visOneGenome :: (Genome -> Float) -> Path Abs Dir -> Int -> Genome -> IO ()
 visOneGenome fitness dir genomeId genome = do
   let dot = genomeToDot genome $ fitness genome
   filename <- parseRelFile ("genome=" ++ show genomeId)
