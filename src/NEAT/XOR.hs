@@ -4,21 +4,23 @@ module NEAT.XOR
   )
 where
 
-import qualified NEAT.Data
+import NEAT.Data
 import qualified NEAT.Algo
 
 config :: NEAT.Data.Config
 config = NEAT.Data.Config
-  { NEAT.Data.name = "XOR"
-  , NEAT.Data.initPopulation = 150
-  , NEAT.Data.guessedGenerations = 50
-  , NEAT.Data.weightRange = (-1.0, 1.0)
-  , NEAT.Data.threshold = 3.0
-  , NEAT.Data.inNodes = 2
-  , NEAT.Data.outNodes = 1}
+  { name = "XOR"
+  , initPopulation = 150
+  , guessedGenerations = 50
+  , weightRange = (-1.0, 1.0)
+  , compatibilityParams = CompatibilityParams
+      { c123=(1.0, 1.0, 0.4)
+      , threshold=3.0}
+  , inNodes = 2
+  , outNodes = 1}
 
 -- TODO @incomplete: finish this
-fitness :: NEAT.Data.Genome -> Float
+fitness :: Genome -> Float
 fitness genome =
   (4 - sum losses) ^ 2
   where

@@ -51,11 +51,15 @@ data Trither a b
 
 type Population = Vector Genome
 
+data CompatibilityParams = CompatibilityParams
+  { c123 :: (Float, Float, Float)
+  , threshold :: Float}
+
 data Config = Config
   { name :: String
   , initPopulation :: Int
   , weightRange :: (Float, Float)
   , guessedGenerations :: Int
-  , threshold :: Float
+  , compatibilityParams :: CompatibilityParams
   , inNodes :: Int
   , outNodes :: Int}

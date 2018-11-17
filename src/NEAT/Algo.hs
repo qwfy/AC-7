@@ -299,8 +299,9 @@ computeFitness fitness species =
   in Vector.map (\g -> (g, fitness g / population)) species
 
 -- TODO @incomplete: this implementation is not confirmed
-speciate :: (Genome -> Float) -> Float -> Vector Genome -> Vector Genome -> Vector (Vector Genome)
-speciate fitness threshold representatives population =
+-- TODO @incomplete: change this to compatibility
+speciate :: CompatibilityParams -> Vector Genome -> Vector Genome -> Vector (Vector Genome)
+speciate compatibilityParams representatives population =
   let init = Vector.map (\gen -> (gen, Vector.empty)) representatives
   in foldl' (\accGen idv ->
        case Vector.findIndex (\(r, _) ->isSameSpecies idv r) accGen of
@@ -314,11 +315,11 @@ speciate fitness threshold representatives population =
      |> Vector.map snd
   where
     isSameSpecies a b =
-      abs (fitness a - fitness b) <= threshold
+      compatibility (c123 compatibilityParams) a b <= threshold compatibilityParams
 
 
-evolve ::(Genome -> Float) -> Float -> Vector (Vector Genome) -> IO (Vector (Vector Genome))
-evolve fitness threshold prevGen = do
+evolve ::(Genome -> Float) -> CompatibilityParams -> Vector (Vector Genome) -> IO (Vector (Vector Genome))
+evolve fitness compatibilityParams prevGen = do
   -- 1. choose the first one of each spicies as the representative of that species
   -- TODO @incomplete: randomness
   -- TODO @incomplete: handling empty list
@@ -339,7 +340,7 @@ evolve fitness threshold prevGen = do
   -- TODO @incomplete: elitism
   newGen' <- Vector.mapM (uncurry reproduce) (Vector.zip withFitnesses newSpeciesSizes)
   let population = Vector.concat (Vector.toList newGen')
-  let newGen = speciate fitness threshold representatives population
+  let newGen = speciate compatibilityParams representatives population
 
   return newGen
 
@@ -347,12 +348,12 @@ makeInitPopulation :: Config -> TVar GIN -> IO Population
 makeInitPopulation Config{initPopulation, weightRange, inNodes, outNodes} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
 
-simulate :: (Genome -> Float) -> Float -> Int -> Vector Genome -> Path Abs Dir -> IO (Vector (Vector Genome))
-simulate fitness threshold numGenerations initPopulation visDir = do
-  let initGen = speciate fitness threshold Vector.empty initPopulation
+simulate :: (Genome -> Float) -> CompatibilityParams -> Int -> Vector Genome -> Path Abs Dir -> IO (Vector (Vector Genome))
+simulate fitness compatibilityParams numGenerations initPopulation visDir = do
+  let initGen = speciate compatibilityParams Vector.empty initPopulation
   visOneGen fitness visDir 0 initGen
   foldM (\prevGen genNum -> do
-    newGen <- evolve fitness threshold prevGen
+    newGen <- evolve fitness compatibilityParams prevGen
     visOneGen fitness visDir genNum newGen
     return newGen
     ) initGen [1 .. numGenerations]

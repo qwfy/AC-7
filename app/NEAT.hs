@@ -32,4 +32,4 @@ main = do
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
   let numGenerations = NEAT.Data.guessedGenerations Problem.config
   visDir <- liftM2 (\a b -> a </> [reldir|visualization|] </> b) getCurrentDir (parseRelDir runId)
-  void $ NEAT.Algo.simulate Problem.fitness (NEAT.Data.threshold Problem.config) numGenerations initPopulation visDir
+  void $ NEAT.Algo.simulate Problem.fitness (NEAT.Data.compatibilityParams Problem.config) numGenerations initPopulation visDir
