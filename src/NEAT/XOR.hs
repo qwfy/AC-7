@@ -1,14 +1,14 @@
 module NEAT.XOR
   ( fitness
-  , config
+  , params
   )
 where
 
 import NEAT.Data
 import qualified NEAT.Algo
 
-config :: Config
-config = Config
+params :: Params
+params = Params
   { name = "XOR"
   , initPopulation = 150
   , guessedGenerations = 50

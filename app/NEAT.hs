@@ -27,9 +27,9 @@ main = do
   putStrLn . unwords $
     ["starting run:", runId]
   putStrLn . unwords $
-    ["solving problem:", name Problem.config]
+    ["solving problem:", name Problem.params]
   ginVar <- NEAT.Algo.makeGINTVar (GIN 0)
-  initPopulation <- NEAT.Algo.makeInitPopulation Problem.config ginVar
-  let numGenerations = guessedGenerations Problem.config
+  initPopulation <- NEAT.Algo.makeInitPopulation Problem.params ginVar
+  let numGenerations = guessedGenerations Problem.params
   visDir <- liftM2 (\a b -> a </> [reldir|visualization|] </> b) getCurrentDir (parseRelDir runId)
-  void $ NEAT.Algo.simulate Problem.fitness (compatibilityParams Problem.config) numGenerations initPopulation visDir
+  void $ NEAT.Algo.simulate Problem.fitness (compatibilityParams Problem.params) numGenerations initPopulation visDir

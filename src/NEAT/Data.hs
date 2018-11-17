@@ -5,7 +5,7 @@ module NEAT.Data where
 
 import qualified Data.UUID
 import Data.Vector (Vector)
-import qualified Data.Map.Strict as Map
+import Data.Map (Map)
 
 -- | Global Innovation Number.
 newtype GIN = GIN Integer
@@ -37,7 +37,7 @@ data Edge = Edge
   deriving (Show)
 
 data Genome = Genome
-  { nodes :: Map.Map NodeId Node
+  { nodes :: Map NodeId Node
   , edges :: Vector Edge}
   deriving (Show)
 
@@ -48,14 +48,11 @@ data Trither a b
   | Sinistra Mismatch a
   | Destra Mismatch b
 
-
-type Population = Vector Genome
-
 data CompatibilityParams = CompatibilityParams
   { c123 :: (Float, Float, Float)
   , threshold :: Float}
 
-data Config = Config
+data Params = Params
   { name :: String
   , initPopulation :: Int
   , weightRange :: (Float, Float)

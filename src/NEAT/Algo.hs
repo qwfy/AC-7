@@ -344,8 +344,8 @@ evolve fitness compatibilityParams prevGen = do
 
   return newGen
 
-makeInitPopulation :: Config -> TVar GIN -> IO Population
-makeInitPopulation Config{initPopulation, weightRange, inNodes, outNodes} ginVar =
+makeInitPopulation :: Params -> TVar GIN -> IO (Vector Genome)
+makeInitPopulation Params{initPopulation, weightRange, inNodes, outNodes} ginVar =
   Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
 
 simulate :: (Genome -> Float) -> CompatibilityParams -> Int -> Vector Genome -> Path Abs Dir -> IO (Vector (Vector Genome))
