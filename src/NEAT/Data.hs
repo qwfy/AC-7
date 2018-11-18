@@ -6,22 +6,22 @@ import qualified Data.UUID
 import Data.Vector (Vector)
 import Data.Map (Map)
 
--- | Global Innovation Number.
-newtype GIN = GIN Integer
 
 newtype NodeId = NodeId Data.UUID.UUID
   deriving (Eq, Ord, Show)
 
-data EnableStatus = Enabled | Disabled
-
 data NodeKind = Sensor | Hidden | Output
   deriving (Eq)
 
--- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
   { nodeId :: NodeId
   , kind :: NodeKind}
   deriving (Eq)
+
+-- | Global Innovation Number.
+newtype GIN = GIN Integer
+
+data EnableStatus = Enabled | Disabled
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
