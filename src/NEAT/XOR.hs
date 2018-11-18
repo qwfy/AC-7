@@ -10,7 +10,7 @@ import qualified NEAT.Algo
 params :: Params
 params = Params
   { name = "XOR"
-  , initPopulation = 150
+  , numInitPopulation = 150
   , guessedGenerations = 50
   , weightRange = (-1.0, 1.0)
   , compatibilityParams = CompatibilityParams

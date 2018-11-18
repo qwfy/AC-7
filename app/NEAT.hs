@@ -6,9 +6,7 @@ This is an implementation of
 
 {-# LANGUAGE QuasiQuotes #-}
 
-module Main where
-
-import qualified Data.List
+module Main (main) where
 
 import NEAT.Data
 import qualified NEAT.Algo

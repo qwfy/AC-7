@@ -49,7 +49,7 @@ data CompatibilityParams = CompatibilityParams
 
 data Params = Params
   { name :: String
-  , initPopulation :: Int
+  , numInitPopulation :: Int
   , weightRange :: (Float, Float)
   , guessedGenerations :: Int
   , compatibilityParams :: CompatibilityParams

@@ -141,8 +141,8 @@ mutateAddNode old@Genome {nodes, edges} ginVar =
       let newNodes = Map.insert (nodeId newNode) newNode nodes
 
       -- NB: the order is significant
-      let newEdges = Vector.update edges (Vector.singleton (index, disabledEdge))
-      let newEdges = newEdges Vector.++ Vector.fromList [edgeToNew, edgeFromNew]
+      let newEdges' = Vector.update edges (Vector.singleton (index, disabledEdge))
+      let newEdges = newEdges' Vector.++ Vector.fromList [edgeToNew, edgeFromNew]
 
       return $ Genome {nodes = newNodes, edges = newEdges}
 
@@ -414,8 +414,8 @@ evolve fitness compatibilityParams (Generation prevGen) = do
 
 
 makeInitPopulation :: Params -> TVar GIN -> IO Population
-makeInitPopulation Params{initPopulation, weightRange, inNodes, outNodes} ginVar = do
-  genomes <- Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
+makeInitPopulation Params{numInitPopulation, weightRange, inNodes, outNodes} ginVar = do
+  genomes <- Vector.generateM numInitPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
   return $ Population genomes
 
 simulate :: (Genome -> OriginalFitness) -> CompatibilityParams -> Int -> Population -> Path Abs Dir -> IO Generation
@@ -467,5 +467,5 @@ visOneSpecies fitness parentDir speciesId (Species genomes) = do
 visOneGenome :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Genome -> IO ()
 visOneGenome fitness dir genomeId genome = do
   let dot = genomeToDot genome $ fitness genome
-  filename <- parseRelFile ("genome=" ++ show genomeId)
-  void $ writeSvg dot (dir </> filename)
+  imageFilename <- parseRelFile ("genome=" ++ show genomeId)
+  void $ writeSvg dot (dir </> imageFilename)
