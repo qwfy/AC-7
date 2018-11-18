@@ -51,10 +51,10 @@ data Params = Params
   { name :: String
   , numInitPopulation :: Int
   , weightRange :: (Float, Float)
-  , guessedGenerations :: Int
+  , numGuessedGenerations :: Int
   , compatibilityParams :: CompatibilityParams
-  , inNodes :: Int
-  , outNodes :: Int}
+  , numInNodes :: Int
+  , numOutNodes :: Int}
 
 newtype OriginalFitness = OriginalFitness Float
 

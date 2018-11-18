@@ -11,18 +11,18 @@ params :: Params
 params = Params
   { name = "XOR"
   , numInitPopulation = 150
-  , guessedGenerations = 50
+  , numGuessedGenerations = 50
   , weightRange = (-1.0, 1.0)
   , compatibilityParams = CompatibilityParams
       { c123=(1.0, 1.0, 0.4)
       , threshold=3.0}
-  , inNodes = 2
-  , outNodes = 1}
+  , numInNodes = 2
+  , numOutNodes = 1}
 
 -- TODO @incomplete: finish this
 fitness :: Genome -> OriginalFitness
 fitness genome =
-  OriginalFitness $ (4 - sum losses) ^ 2
+  OriginalFitness $ (4 - sum losses) ^ (2 :: Int)
   where
     sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
     truths       = [0,      1,      1,      0     ]

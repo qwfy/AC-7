@@ -414,8 +414,8 @@ evolve fitness compatibilityParams (Generation prevGen) = do
 
 
 makeInitPopulation :: Params -> TVar GIN -> IO Population
-makeInitPopulation Params{numInitPopulation, weightRange, inNodes, outNodes} ginVar = do
-  genomes <- Vector.generateM numInitPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
+makeInitPopulation Params{numInitPopulation, weightRange, numInNodes, numOutNodes} ginVar = do
+  genomes <- Vector.generateM numInitPopulation (\_ -> makeInitGenome weightRange numInNodes numOutNodes ginVar)
   return $ Population genomes
 
 simulate :: (Genome -> OriginalFitness) -> CompatibilityParams -> Int -> Population -> Path Abs Dir -> IO Generation
