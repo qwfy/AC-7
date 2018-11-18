@@ -29,6 +29,7 @@ dependencies:
 - path
 - path-io
 - time
+- safe
 
 library:
   source-dirs: src

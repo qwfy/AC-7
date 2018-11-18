@@ -20,9 +20,9 @@ params = Params
   , outNodes = 1}
 
 -- TODO @incomplete: finish this
-fitness :: Genome -> Float
+fitness :: Genome -> OriginalFitness
 fitness genome =
-  (4 - sum losses) ^ 2
+  OriginalFitness $ (4 - sum losses) ^ 2
   where
     sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
     truths       = [0,      1,      1,      0     ]

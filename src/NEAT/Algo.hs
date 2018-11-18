@@ -20,6 +20,7 @@ import qualified Data.Map.Strict as Map
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
+import Safe
 
 import Util
 
@@ -60,6 +61,9 @@ makeNode kind = do
 -- In contrast, NEAT biases the search towards minimal-dimensional spaces
 -- by starting out with a uniform population of networks with zero hidden nodes
 -- (i.e., all inputs connect directly to putputs).
+-- TODO @incomplete: replace (float, float) with a function that returns a random value
+-- TODO @incomplete: ability to evolving input and output node as needed - comparing to
+-- the current implementation where the number of inputs and outputs are fixed before hand
 makeInitGenome :: (Float, Float) -> Int -> Int -> TVar GIN -> IO Genome
 makeInitGenome weightRange numInNodes numOutNodes ginVar = do
   inNodes <- replicateM numInNodes $ makeNode Sensor
@@ -211,8 +215,8 @@ zipEdges lefts rights =
     increaseR = increaseIndex (rLength - 1)
 
 
-cross :: (Genome, Float) -> (Genome, Float) -> IO Genome
-cross (left, leftFitness) (right, rightFitness) = do
+crossover :: (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
+crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
   let alignedEdges = zipEdges (edges left) (edges right)
   -- this is a list of random bools used to break ties
   triggers <- Random.triggers (length alignedEdges) (Random.P 0.5)
@@ -283,74 +287,140 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
     meanDiff = sum diffs / fromIntegral (length diffs)
 
 -- | Reproduce a species.
--- TODO @incomplete: choose the best performing r%
-reproduce :: Vector (Genome, Float) -> Int -> IO (Vector Genome)
-reproduce _ 0 = return Vector.empty
-reproduce genomeFitnesses numOffsprings =
-  Vector.replicateM numOffsprings $ do
-    p1Fit <- Random.choose genomeFitnesses
-    p2Fit <- Random.choose genomeFitnesses
-    cross p1Fit p2Fit
+--
+-- Implemented:
+--   - top r% is allowed to crossover (r% is computed at the caller)
+--   - champion is copied without mutation
+-- Not Implemented: TODO @incomplete: implement this
+--   - 25% of the offspring result from mutation without crossover
+--   - 0.1% chance of interspecies mating
+reproduceSpecies :: SpeciesWithAdjustedFitness -> Int -> IO Species
+reproduceSpecies gf@(SpeciesWithAdjustedFitness genomeWithFitnesses) numOffsprings
+  | numOffsprings == 0 = return $ Species Vector.empty
+  | Vector.null genomeWithFitnesses = return $ Species Vector.empty
+  | otherwise = do
+    -- mate the top fitted members
+    tops <- Vector.replicateM numOffsprings $ do
+      -- since genomeWithFitnesses is not empty, this is guaranteed to be a Just
+      Just parent1 <- Random.chooseWith getWeight genomeWithFitnesses
+      Just parent2 <- Random.chooseWith getWeight genomeWithFitnesses
+      crossover parent1 parent2
 
-computeFitness :: (Genome -> Float) -> Vector Genome -> Vector (Genome, Float)
-computeFitness fitness species =
-  -- TODO @incomplete: handle empty
-  let population = fromIntegral $ Vector.length species
-  in Vector.map (\g -> (g, fitness g / population)) species
+    -- copy the champion to the next generation without mutation
+    -- TODO @incomplete: more aggressive elitism?
+    let champions =
+          -- TODO @incomplete: do not hard code the 5
+          if Vector.length genomeWithFitnesses > 5
+            then
+              case getChampion gf of
+                Nothing -> Vector.empty
+                Just champion -> Vector.singleton champion
+            else
+              Vector.empty
 
--- TODO @incomplete: this implementation is not confirmed
--- TODO @incomplete: change this to compatibility
-speciate :: CompatibilityParams -> Vector Genome -> Vector Genome -> Vector (Vector Genome)
-speciate compatibilityParams representatives population =
-  let init = Vector.map (\gen -> (gen, Vector.empty)) representatives
-  in foldl' (\accGen idv ->
-       case Vector.findIndex (\(r, _) ->isSameSpecies idv r) accGen of
-         Nothing ->
-           Vector.snoc accGen (idv, Vector.singleton idv)
-         Just i ->
-           let (repre, old) = accGen Vector.! i
-               new = Vector.snoc old idv
-           in accGen Vector.// [(i, (repre, new))]
-       ) init population
-     |> Vector.map snd
+    -- maybe reverse the order of the concatenation is more performant,
+    -- but this may lead to a bad choice of representative of the species,
+    -- if later we choose the first genome to be the representative of the species,
+    -- we will worry about the performance later
+    return . Species $ tops Vector.++ champions
+    where
+      -- sample uniformly
+      getWeight = const 1.0
+      -- sample according to fitness
+      -- getWeight (_genome, AdjustedFitness weight) = weight
+
+
+-- TODO @incomplete: is this efficient?
+getChampion :: SpeciesWithAdjustedFitness -> Maybe Genome
+getChampion (SpeciesWithAdjustedFitness xs) =
+  Vector.toList xs
+    |> sortBy (\(_, AdjustedFitness w1) (_, AdjustedFitness w2) -> compare w1 w2)
+    |> headMay
+    |> fmap fst
+
+
+-- | original_fitness / population_of_this_species
+adjustFitness :: (Genome -> OriginalFitness) -> Species -> SpeciesWithAdjustedFitness
+adjustFitness fitness (Species genomes)
+  | Vector.null genomes = SpeciesWithAdjustedFitness Vector.empty
+  | otherwise =
+    let numGenomes = fromIntegral $ Vector.length genomes
+        fitness' g =
+          let OriginalFitness f = fitness g
+          -- since genomes is not empty, the division is safe
+          in AdjustedFitness $ f / numGenomes
+        species = Vector.map (\g -> (g, fitness' g)) genomes
+    in SpeciesWithAdjustedFitness species
+
+
+-- | Speciate the old generation into a new generation according to compatibility.
+speciate :: CompatibilityParams -> Generation -> IO Generation
+speciate compatibilityParams (Generation oldGen) = do
+  zero <- Vector.mapM chooseSpeciesRepr oldGen
+  let oldPopulation = oldGen
+        |> Vector.map (\(Species s) -> s)  -- :: Vector (Vector Genome)
+        |> Vector.toList          -- :: [Vector Genome]
+        |> Vector.concat          -- :: Vector Genome
+  foldl' (\acc idv ->
+    case Vector.findIndex (\withRepr -> isSameSpecies withRepr idv) acc of
+      Nothing ->
+        -- a new species is created, and appended to the end,
+        -- with the first member as its representative
+        Vector.snoc acc $ Just (idv, Vector.singleton idv)
+      Just i ->
+        -- since we just found i, access to the i-th element is safe
+        -- by the way the prediction works, it has to be a Just
+        let Just (oldRepr, oldSpecies) = acc Vector.! i
+            newSpecies = Vector.snoc oldSpecies idv
+        in acc Vector.// [(i, Just (oldRepr, newSpecies))]
+    ) zero oldPopulation
+    |> Vector.map (\case
+         Nothing -> Vector.empty
+         Just (_, x) -> x)
+    |> Vector.map Species
+    |> Generation
+    |> return
   where
-    isSameSpecies a b =
+    chooseSpeciesRepr (Species genomes) = do
+      chosen' <- Random.chooseUniformly genomes
+      case chosen' of
+        Nothing -> return Nothing
+        Just chosen -> return $ Just (chosen, Vector.empty)
+
+    isSameSpecies Nothing _ = False
+    isSameSpecies (Just (a, _)) b =
       compatibility (c123 compatibilityParams) a b <= threshold compatibilityParams
 
 
-evolve ::(Genome -> Float) -> CompatibilityParams -> Vector (Vector Genome) -> IO (Vector (Vector Genome))
-evolve fitness compatibilityParams prevGen = do
-  -- 1. choose the first one of each spicies as the representative of that species
-  -- TODO @incomplete: randomness
-  -- TODO @incomplete: handling empty list
-  let representatives =
-        Vector.filter (not . Vector.null) prevGen
-          |> Vector.map (Vector.! 0)
+-- | Evolve: from the current generation to the next generation
+evolve :: (Genome -> OriginalFitness) -> CompatibilityParams -> Generation -> IO Generation
+evolve fitness compatibilityParams (Generation prevGen) = do
+  -- the adjusted fitness
+  let speciesWithFitnesses = Vector.map (adjustFitness fitness) prevGen
 
-  -- 2. compute fitness
-  let withFitnesses = Vector.map (computeFitness fitness) prevGen
-
-  -- 3. compute number of offsprings for each species
-  let speciesTotalFitnesses = Vector.map (Vector.sum . Vector.map snd) withFitnesses
-  let speciesSizes = Vector.map Vector.length prevGen
+  -- number of offsprings for each species
+  let speciesTotalFitnesses = speciesWithFitnesses
+        |> Vector.map (\(SpeciesWithAdjustedFitness s) -> s)
+        |> Vector.map (Vector.sum . Vector.map ((\(AdjustedFitness f) -> f) . snd))
+  let speciesSizes = Vector.map (Vector.length . (\(Species x) -> x)) prevGen
   let globalMeanFitness = Vector.sum speciesTotalFitnesses / fromIntegral (Vector.sum speciesSizes)
   let newSpeciesSizes = Vector.map (ceiling . (/ globalMeanFitness)) speciesTotalFitnesses
 
-  -- 4. reproduce
-  -- TODO @incomplete: elitism
-  newGen' <- Vector.mapM (uncurry reproduce) (Vector.zip withFitnesses newSpeciesSizes)
-  let population = Vector.concat (Vector.toList newGen')
-  let newGen = speciate compatibilityParams representatives population
+  -- reproduce
+  newGen' <- Vector.mapM (uncurry reproduceSpecies) (Vector.zip speciesWithFitnesses newSpeciesSizes)
+  newGen <- speciate compatibilityParams (Generation newGen')
 
   return newGen
 
-makeInitPopulation :: Params -> TVar GIN -> IO (Vector Genome)
-makeInitPopulation Params{initPopulation, weightRange, inNodes, outNodes} ginVar =
-  Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
 
-simulate :: (Genome -> Float) -> CompatibilityParams -> Int -> Vector Genome -> Path Abs Dir -> IO (Vector (Vector Genome))
-simulate fitness compatibilityParams numGenerations initPopulation visDir = do
-  let initGen = speciate compatibilityParams Vector.empty initPopulation
+makeInitPopulation :: Params -> TVar GIN -> IO Population
+makeInitPopulation Params{initPopulation, weightRange, inNodes, outNodes} ginVar = do
+  genomes <- Vector.generateM initPopulation (\_ -> makeInitGenome weightRange inNodes outNodes ginVar)
+  return $ Population genomes
+
+simulate :: (Genome -> OriginalFitness) -> CompatibilityParams -> Int -> Population -> Path Abs Dir -> IO Generation
+simulate fitness compatibilityParams numGenerations (Population initPopulation) visDir = do
+  let initGen = Generation . Vector.singleton . Species $ initPopulation
   visOneGen fitness visDir 0 initGen
   foldM (\prevGen genNum -> do
     newGen <- evolve fitness compatibilityParams prevGen
@@ -381,19 +451,20 @@ genomeValue genome@Genome{nodes} sensorValues =
     |> filter (\(_, node) -> kind node == Output)
     |> map (\(_, n) -> nodeValue n genome sensorValues)
 
-visOneGen :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector (Vector Genome) -> IO ()
-visOneGen fitness visDir genNumber gen = do
+visOneGen :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Generation -> IO ()
+visOneGen fitness visDir genNumber (Generation gen) = do
   genDir <- liftM (visDir </>) (parseRelDir ("generation=" ++ show genNumber))
   Vector.imapM_ (visOneSpecies fitness genDir) gen
 
-visOneSpecies :: (Genome -> Float) -> Path Abs Dir -> Int -> Vector Genome -> IO ()
-visOneSpecies fitness parentDir speciesId genomes = do
+visOneSpecies :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Species -> IO ()
+visOneSpecies fitness parentDir speciesId (Species genomes) = do
   speciesDir <- parseRelDir ("species=" ++ show speciesId)
   let dir = parentDir </> speciesDir
   ensureDir dir
   Vector.imapM_ (visOneGenome fitness dir) genomes
 
-visOneGenome :: (Genome -> Float) -> Path Abs Dir -> Int -> Genome -> IO ()
+-- TODO @incomplete: differentiate between adjusted fitness and original fitness
+visOneGenome :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Genome -> IO ()
 visOneGenome fitness dir genomeId genome = do
   let dot = genomeToDot genome $ fitness genome
   filename <- parseRelFile ("genome=" ++ show genomeId)

@@ -1,5 +1,4 @@
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE LambdaCase #-}
 
 module NEAT.Data where
 
@@ -60,3 +59,21 @@ data Params = Params
   , compatibilityParams :: CompatibilityParams
   , inNodes :: Int
   , outNodes :: Int}
+
+newtype OriginalFitness = OriginalFitness Float
+instance Show OriginalFitness where
+  show (OriginalFitness f) = "OF=" ++ show f
+
+newtype AdjustedFitness = AdjustedFitness Float
+instance Show AdjustedFitness where
+  show (AdjustedFitness f) = "AF=" ++ show f
+
+newtype Species = Species (Vector Genome)
+newtype SpeciesWithAdjustedFitness =
+  SpeciesWithAdjustedFitness (Vector (Genome, AdjustedFitness))
+
+-- | A Generation is an ORDERED list of species, where its index encodes its species id.
+-- Note that a species can be empty, and empty species will NOT be elimated.
+newtype Generation = Generation (Vector Species)
+
+newtype Population = Population (Vector Genome)

@@ -3,6 +3,8 @@ module Random
   , trigger
   , triggers
   , choose
+  , chooseWith
+  , chooseUniformly
   )
 where
 
@@ -26,13 +28,22 @@ triggers :: Int -> P -> IO [Bool]
 triggers n p =
   replicateM n (trigger p)
 
-choose :: Foldable t => t (a, Float) -> IO (a, Float)
-choose dist
-  | null dist = error "Cannot choose from nothing"
+choose :: Foldable t => t (a, Float) -> IO (Maybe (a, Float))
+choose = chooseWith snd
+
+chooseUniformly :: Foldable t => t a -> IO (Maybe a)
+chooseUniformly = chooseWith (const 1.0)
+
+-- TODO @incomplete: test this
+chooseWith :: Foldable t => (a -> Float) -> t a -> IO (Maybe a)
+chooseWith getWeight dist
+  | null dist = return Nothing
   | otherwise = do
-    let (accum', total) = foldl' (\(accL, accW) (a, w) ->
-          ((a, accW+w) : accL, accW+w)
+    let (accum', total) = foldl' (\(accL, accW) a ->
+          let w = getWeight a
+          in ((a, accW+w) : accL, accW+w)
           ) ([], 0) dist
     let accum = reverse accum'
     p <- System.Random.randomRIO (0.0, total)
-    return . head $ dropWhile (\(_, q) -> q < p) accum
+    let (chosen, _) = head $ dropWhile (\(_, q) -> q < p) accum
+    return $ Just chosen

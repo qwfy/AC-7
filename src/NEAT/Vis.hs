@@ -13,7 +13,7 @@ import Data.GraphViz.Types.Monadic
 
 import NEAT.Data
 
-genomeToDot :: Genome -> Float -> DotGraph String
+genomeToDot :: Genome -> OriginalFitness -> DotGraph String
 genomeToDot Genome{edges} fitness = G.fromGeneralised $
   digraph (Str "genome") $ do
     -- TODO @incomplete: hide the label properly
