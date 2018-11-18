@@ -8,22 +8,20 @@ import Data.Map (Map)
 
 -- | Global Innovation Number.
 newtype GIN = GIN Integer
-  deriving (Show)
 
 newtype NodeId = NodeId Data.UUID.UUID
   deriving (Eq, Ord, Show)
 
 data EnableStatus = Enabled | Disabled
-  deriving (Show)
 
 data NodeKind = Sensor | Hidden | Output
-  deriving (Eq, Show)
+  deriving (Eq)
 
 -- TODO @incomplete: differentiate between input and hidden node?
 data Node = Node
   { nodeId :: NodeId
   , kind :: NodeKind}
-  deriving (Eq, Show)
+  deriving (Eq)
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
@@ -33,12 +31,10 @@ data Edge = Edge
   , weight       :: Float
   , enableStatus :: EnableStatus
   , gin          :: GIN}
-  deriving (Show)
 
 data Genome = Genome
   { nodes :: Map NodeId Node
   , edges :: Vector Edge}
-  deriving (Show)
 
 data Mismatch = Disjoint | Excess
 
@@ -61,10 +57,12 @@ data Params = Params
   , outNodes :: Int}
 
 newtype OriginalFitness = OriginalFitness Float
+
+newtype AdjustedFitness = AdjustedFitness Float
+
 instance Show OriginalFitness where
   show (OriginalFitness f) = "OF=" ++ show f
 
-newtype AdjustedFitness = AdjustedFitness Float
 instance Show AdjustedFitness where
   show (AdjustedFitness f) = "AF=" ++ show f
 
