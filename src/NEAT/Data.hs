@@ -5,6 +5,7 @@ module NEAT.Data where
 import qualified Data.UUID
 import Data.Vector (Vector)
 import Data.Map (Map)
+import Random
 
 
 newtype NodeId = NodeId Data.UUID.UUID
@@ -47,6 +48,16 @@ data CompatibilityParams = CompatibilityParams
   { c123 :: (Float, Float, Float)
   , threshold :: Float}
 
+data MutateParams = MutateParams
+  { mutateWeightP   :: P -- ^ Probability of mutating an edge's weight
+  , perturbeWeightP :: P -- ^ Out of 'mutateWeightP', probability of perturbing the weight. If the weight is not perturbed, then it is replaced with a completely new one, sampled from 'weightRange'
+  , perturbeRange   :: (Float, Float) -- ^ Uniformlly choose a random number from this range and add it the the current weight, if so desired
+
+  , mutateAddNodeP  :: P -- ^ Probability of adding a new node
+  , mutateAddEdgeP  :: P -- ^ Probability of adding a new edge
+  , geneDisableP    :: P -- ^ A gene is disabled with this probability if it is disabled in either parent
+  }
+
 data Params = Params
   { name :: String
   , numInitPopulation :: Int
@@ -54,7 +65,8 @@ data Params = Params
   , numGuessedGenerations :: Int
   , compatibilityParams :: CompatibilityParams
   , numInNodes :: Int
-  , numOutNodes :: Int}
+  , numOutNodes :: Int
+  , mutateParams :: MutateParams}
 
 newtype OriginalFitness = OriginalFitness Float
 

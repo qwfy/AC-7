@@ -21,14 +21,15 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
 import Safe
+import Path
+import Path.IO
 
 import Util
 
 import NEAT.Data
 import NEAT.Vis
 import Vis
-import Path
-import Path.IO
+import Random
 
 
 -- TODO @incomplete: Things to consider:
@@ -88,21 +89,29 @@ makeInitGenome weightRange numInNodes numOutNodes ginVar = do
 --
 -- Connection weights mutate as in any NE system, with each connection either perturbed
 -- or not at each generation.
-mutateExistingEdge :: Edge -> Random.P -> (Float, Float) -> IO Edge
-mutateExistingEdge old weightMutateP weightRandomRange = do
-  shouldMutateWeight <- Random.trigger weightMutateP
-  if shouldMutateWeight
+-- TODO @incomplete: remove the mutation desion out of this function
+mutateExistingEdge :: P -> P -> (Float, Float) -> (Float, Float) -> Edge -> IO Edge
+mutateExistingEdge mutateP perturbeP perturbeRange weightRange old = do
+  shouldMutate <- Random.trigger mutateP
+  if shouldMutate
     then do
-      weightDelta <- System.Random.randomRIO weightRandomRange
-      let newWeight = weight old + weightDelta
-          new = old {weight = newWeight}
+      shouldPerturbe <- Random.trigger perturbeP
+      newWeight <-
+        if shouldPerturbe
+          then do
+            weightDelta <- System.Random.randomRIO perturbeRange
+            let newWeight = weight old + weightDelta
+            return newWeight
+          else
+            System.Random.randomRIO weightRange
+      let new = old {weight = newWeight}
       return new
     else
       return old
 
 -- TODO @incomplete: reuse GIN if the same mutation already occurred in the current generation
 mutateAddNode :: Genome -> TVar GIN -> IO Genome
-mutateAddNode old@Genome {nodes, edges} ginVar =
+mutateAddNode old@Genome{nodes, edges} ginVar =
   -- according to the section 3.1 of the paper:
   --
   -- In the add node mutation, an existing connection is split and the new node placed
@@ -225,7 +234,7 @@ crossover :: (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
 crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
   let alignedEdges = zipEdges (edges left) (edges right)
   -- this is a list of random bools used to break ties
-  triggers <- Random.triggers (length alignedEdges) (Random.P 0.5)
+  triggers <- Random.triggers (length alignedEdges) (P 0.5)
 
   let winner = case compare leftFitness rightFitness of
         EQ -> Nothing
@@ -290,6 +299,7 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
       ) (0, 0, []) (zipEdges edgesA edgesB)
     meanDiff = sum diffs / fromIntegral (length diffs)
 
+
 -- | Reproduce a species.
 --
 -- Implemented:
@@ -298,40 +308,74 @@ compatibility (c1, c2, c3) Genome{edges=edgesA} Genome{edges=edgesB} =
 -- Not Implemented: TODO @incomplete: implement this
 --   - 25% of the offspring result from mutation without crossover
 --   - 0.1% chance of interspecies mating
-reproduceSpecies :: SpeciesWithAdjustedFitness -> Int -> IO Species
-reproduceSpecies gf@(SpeciesWithAdjustedFitness genomeWithFitnesses) numOffsprings
-  | numOffsprings == 0 = return $ Species Vector.empty
-  | Vector.null genomeWithFitnesses = return $ Species Vector.empty
-  | otherwise = do
-    -- mate the top fitted members
-    tops <- Vector.replicateM numOffsprings $ do
-      -- since genomeWithFitnesses is not empty, this is guaranteed to be a Just
-      Just parent1 <- Random.chooseWith getWeight genomeWithFitnesses
-      Just parent2 <- Random.chooseWith getWeight genomeWithFitnesses
-      crossover parent1 parent2
+reproduceSpecies :: (Float, Float) -> MutateParams -> TVar GIN
+                 -> SpeciesWithAdjustedFitness -> Int
+                 -> IO Species
+reproduceSpecies
+  weightRange mutateParams ginVar
+  gf@(SpeciesWithAdjustedFitness genomeWithFitnesses) numOffsprings
+    | numOffsprings == 0 = return $ Species Vector.empty
+    | Vector.null genomeWithFitnesses = return $ Species Vector.empty
+    | otherwise = do
+      -- mate the top fitted members
+      tops <- Vector.replicateM numOffsprings $ do
+        -- since genomeWithFitnesses is not empty, this is guaranteed to be a Just
+        Just parent1 <- Random.chooseWith getWeight genomeWithFitnesses
+        Just parent2 <- Random.chooseWith getWeight genomeWithFitnesses
+        offspring <- crossover parent1 parent2
+        mutateGenome weightRange mutateParams ginVar offspring
 
-    -- copy the champion to the next generation without mutation
-    -- TODO @incomplete: more aggressive elitism?
-    let champions =
-          -- TODO @incomplete: do not hard code the 5
-          if Vector.length genomeWithFitnesses > 5
-            then
-              case getChampion gf of
-                Nothing -> Vector.empty
-                Just champion -> Vector.singleton champion
-            else
-              Vector.empty
+      -- copy the champion to the next generation without mutation
+      -- TODO @incomplete: more aggressive elitism?
+      let champions =
+            -- TODO @incomplete: do not hard code the 5
+            if Vector.length genomeWithFitnesses > 5
+              then
+                case getChampion gf of
+                  Nothing -> Vector.empty
+                  Just champion -> Vector.singleton champion
+              else
+                Vector.empty
 
-    -- maybe reverse the order of the concatenation is more performant,
-    -- but this may lead to a bad choice of representative of the species,
-    -- if later we choose the first genome to be the representative of the species,
-    -- we will worry about the performance later
-    return . Species $ tops Vector.++ champions
-    where
-      -- sample uniformly
-      getWeight = const 1.0
-      -- sample according to fitness
-      -- getWeight (_genome, AdjustedFitness weight) = weight
+      -- maybe reverse the order of the concatenation is more performant,
+      -- but this may lead to a bad choice of representative of the species,
+      -- if later we choose the first genome to be the representative of the species,
+      -- we will worry about the performance later
+      return . Species $ tops Vector.++ champions
+      where
+        -- sample uniformly
+        getWeight = const 1.0
+        -- sample according to fitness
+        -- getWeight (_genome, AdjustedFitness weight) = weight
+
+
+mutateGenome :: (Float, Float) -> MutateParams -> TVar GIN -> Genome -> IO Genome
+mutateGenome
+  weightRange
+  MutateParams{mutateWeightP, perturbeWeightP, perturbeRange, mutateAddNodeP, mutateAddEdgeP}
+  ginVar
+  old@Genome{edges} = do
+    -- mutation: weight of existing edge
+    newEdges <- Vector.mapM
+      (mutateExistingEdge mutateWeightP perturbeWeightP perturbeRange weightRange)
+      edges
+    let new' = old{edges = newEdges}
+
+    -- mutation: add node
+    shouldAddNode <- Random.trigger mutateAddNodeP
+    new'' <-
+      if shouldAddNode
+        then mutateAddNode new' ginVar
+        else return new'
+
+    -- mutation: add edge
+    shouldAddEdge <- Random.trigger mutateAddEdgeP
+    new''' <-
+      if shouldAddEdge
+        then mutateAddEdge new'' ginVar weightRange
+        else return new''
+
+    return new'''
 
 
 -- TODO @incomplete: is this efficient?
@@ -397,24 +441,29 @@ speciate compatibilityParams (Generation oldGen) = do
 
 
 -- | Evolve: from the current generation to the next generation
-evolve :: (Genome -> OriginalFitness) -> CompatibilityParams -> Generation -> IO Generation
-evolve fitness compatibilityParams (Generation prevGen) = do
-  -- the adjusted fitness
-  let speciesWithFitnesses = Vector.map (adjustFitness fitness) prevGen
+evolve :: (Genome -> OriginalFitness) -> CompatibilityParams
+       -> (Float, Float) -> MutateParams -> TVar GIN
+       -> Generation -> IO Generation
+evolve
+  fitness compatibilityParams
+  weightRange mutateParams ginVar
+  (Generation prevGen) = do
+    -- the adjusted fitness
+    let speciesWithFitnesses = Vector.map (adjustFitness fitness) prevGen
 
-  -- number of offsprings for each species
-  let speciesTotalFitnesses = speciesWithFitnesses
-        |> Vector.map (\(SpeciesWithAdjustedFitness s) -> s)
-        |> Vector.map (Vector.sum . Vector.map ((\(AdjustedFitness f) -> f) . snd))
-  let speciesSizes = Vector.map (Vector.length . (\(Species x) -> x)) prevGen
-  let globalMeanFitness = Vector.sum speciesTotalFitnesses / fromIntegral (Vector.sum speciesSizes)
-  let newSpeciesSizes = Vector.map (ceiling . (/ globalMeanFitness)) speciesTotalFitnesses
+    -- number of offsprings for each species
+    let speciesTotalFitnesses = speciesWithFitnesses
+          |> Vector.map (\(SpeciesWithAdjustedFitness s) -> s)
+          |> Vector.map (Vector.sum . Vector.map ((\(AdjustedFitness f) -> f) . snd))
+    let speciesSizes = Vector.map (Vector.length . (\(Species x) -> x)) prevGen
+    let globalMeanFitness = Vector.sum speciesTotalFitnesses / fromIntegral (Vector.sum speciesSizes)
+    let newSpeciesSizes = Vector.map (ceiling . (/ globalMeanFitness)) speciesTotalFitnesses
 
-  -- reproduce
-  newGen' <- Vector.mapM (uncurry reproduceSpecies) (Vector.zip speciesWithFitnesses newSpeciesSizes)
-  newGen <- speciate compatibilityParams (Generation newGen')
+    -- reproduce
+    newGen' <- Vector.mapM (uncurry $ reproduceSpecies weightRange mutateParams ginVar) (Vector.zip speciesWithFitnesses newSpeciesSizes)
+    newGen <- speciate compatibilityParams (Generation newGen')
 
-  return newGen
+    return newGen
 
 
 makeInitPopulation :: Params -> TVar GIN -> IO Population
@@ -422,15 +471,22 @@ makeInitPopulation Params{numInitPopulation, weightRange, numInNodes, numOutNode
   genomes <- Vector.generateM numInitPopulation (\_ -> makeInitGenome weightRange numInNodes numOutNodes ginVar)
   return $ Population genomes
 
-simulate :: (Genome -> OriginalFitness) -> CompatibilityParams -> Int -> Population -> Path Abs Dir -> IO Generation
-simulate fitness compatibilityParams numGenerations (Population initPopulation) visDir = do
-  let initGen = Generation . Vector.singleton . Species $ initPopulation
-  visOneGen fitness visDir 0 initGen
-  foldM (\prevGen genNum -> do
-    newGen <- evolve fitness compatibilityParams prevGen
-    visOneGen fitness visDir genNum newGen
-    return newGen
-    ) initGen [1 .. numGenerations]
+simulate :: (Genome -> OriginalFitness) -> CompatibilityParams
+         -> (Float, Float) -> MutateParams -> TVar GIN
+         -> Int -> Population
+         -> Path Abs Dir -> IO Generation
+simulate
+  fitness compatibilityParams
+  weightRange mutateParams ginVar
+  numGenerations (Population initPopulation)
+  visDir = do
+    let initGen = Generation . Vector.singleton . Species $ initPopulation
+    visOneGen fitness visDir 0 initGen
+    foldM (\prevGen genNum -> do
+      newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
+      visOneGen fitness visDir genNum newGen
+      return newGen
+      ) initGen [1 .. numGenerations]
 
 
 -- TODO @incomplete: these fromJust looks dirty

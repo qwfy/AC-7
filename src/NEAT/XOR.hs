@@ -4,6 +4,7 @@ module NEAT.XOR
   )
 where
 
+import Random
 import NEAT.Data
 import qualified NEAT.Algo
 
@@ -17,7 +18,15 @@ params = Params
       { c123=(1.0, 1.0, 0.4)
       , threshold=3.0}
   , numInNodes = 2
-  , numOutNodes = 1}
+  , numOutNodes = 1
+  , mutateParams = MutateParams
+      { mutateWeightP   = P 0.8
+      , perturbeWeightP = P 0.9
+      , perturbeRange   = (-0.1, 0.1) -- TODO @incomplete: confirm this
+      , mutateAddNodeP  = P 0.03
+      , mutateAddEdgeP  = P 0.05
+      , geneDisableP    = P 0.75 }
+  }
 
 -- TODO @incomplete: finish this
 fitness :: Genome -> OriginalFitness

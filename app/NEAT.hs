@@ -30,4 +30,12 @@ main = do
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.params ginVar
   let numGenerations = numGuessedGenerations Problem.params
   visDir <- liftM2 (\a b -> a </> [reldir|visualization|] </> b) getCurrentDir (parseRelDir runId)
-  void $ NEAT.Algo.simulate Problem.fitness (compatibilityParams Problem.params) numGenerations initPopulation visDir
+  void $ NEAT.Algo.simulate
+           Problem.fitness
+           (compatibilityParams Problem.params)
+           (weightRange Problem.params)
+           (mutateParams Problem.params)
+           ginVar
+           numGenerations
+           initPopulation
+           visDir
