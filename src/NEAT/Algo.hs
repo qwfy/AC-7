@@ -223,6 +223,26 @@ zipEdges lefts rights =
     increaseL = increaseIndex (lLength - 1)
     increaseR = increaseIndex (rLength - 1)
 
+mutateDisable :: (Edge, Maybe Edge) -> P -> Edge -> IO Edge
+mutateDisable precondition disableP old =
+  if predicate
+    then do
+      -- NB: the old enable status is completely ignored
+      shouldDisable <- Random.trigger disableP
+      let new = if shouldDisable
+                  then old{enableStatus = Disabled}
+                  else old{enableStatus = Enabled}
+      return new
+    else
+      return old
+  where
+    predicate =
+      case precondition of
+        (Edge{enableStatus=Enabled}, _) -> True
+        (Edge{enableStatus=Disabled}, Nothing) -> False
+        (Edge{enableStatus=Disabled}, Just Edge{enableStatus=Enabled}) -> True
+        (Edge{enableStatus=Disabled}, Just Edge{enableStatus=Disabled}) -> False
+
 
 -- | Cross over two genomes to get a new one.
 --
@@ -230,8 +250,8 @@ zipEdges lefts rights =
 -- At the mismatch position:
 --   If there is a more fit genome, the disjoint and excess genes are always chosen from it.
 --   If the fitnesses are equal, then genes from both are included.
-crossover :: (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
-crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
+crossover :: P -> (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
+crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
   let alignedEdges = zipEdges (edges left) (edges right)
   -- this is a list of random bools used to break ties
   triggers <- Random.triggers (length alignedEdges) (P 0.5)
@@ -241,33 +261,37 @@ crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitne
         LT -> Just (Right ())
         GT -> Just (Left ())
 
-  let pickLeft edge =
-        (edge, [nodes left Map.! inNodeId edge, nodes left Map.! outNodeId edge])
+  let pickLeft edge precondition = do
+        newEdge <- mutateDisable precondition disableP edge
+        return (newEdge, [nodes left Map.! inNodeId edge, nodes left Map.! outNodeId edge])
 
-  let pickRight edge =
-        (edge, [nodes right Map.! inNodeId edge, nodes right Map.! outNodeId edge])
+  let pickRight edge precondition = do
+        newEdge <- mutateDisable precondition disableP edge
+        return (newEdge, [nodes right Map.! inNodeId edge, nodes right Map.! outNodeId edge])
 
-  let (finalEdges, dupNodes) =
-        zip triggers alignedEdges
-          |> map (\case
-               (isLeft, Both l r) ->
-                 Just $ if isLeft then pickLeft l else pickRight r
-               (isLeft, Sinistra _ l) ->
-                 case winner of
-                   -- if there is no winner, include both
-                   Nothing -> Just $ pickLeft l
-                   -- otherwise, always choose from the winner
-                   Just (Left ()) -> Just $ pickLeft l
-                   Just (Right ()) -> Nothing
-               (isLeft, Destra _ r) ->
-                 case winner of
-                   -- if there is no winner, include both
-                   Nothing -> Just $ pickRight r
-                   -- otherwise, always choose from the winner
-                   Just (Left ()) -> Nothing
-                   Just (Right ()) -> Just $ pickRight r)
-          |> filter Data.Maybe.isJust |> map Data.Maybe.fromJust
-          |> unzip
+  (finalEdges, dupNodes) <-
+    zip triggers alignedEdges
+      |> map (\case
+           (isLeft, Both l r) ->
+             let precond = (l, Just r)
+             in Just $ if isLeft then pickLeft l precond else pickRight r precond
+           (_, Sinistra _ l) ->
+             case winner of
+               -- if there is no winner, include both
+               Nothing -> Just $ pickLeft l (l, Nothing)
+               -- otherwise, always choose from the winner
+               Just (Left ()) -> Just $ pickLeft l (l, Nothing)
+               Just (Right ()) -> Nothing
+           (_, Destra _ r) ->
+             case winner of
+               -- if there is no winner, include both
+               Nothing -> Just $ pickRight r (r, Nothing)
+               -- otherwise, always choose from the winner
+               Just (Left ()) -> Nothing
+               Just (Right ()) -> Just $ pickRight r (r, Nothing))
+      |> filter Data.Maybe.isJust |> map Data.Maybe.fromJust
+      |> sequence
+      |> fmap unzip
 
   let finalNodes = foldr (\node acc -> Map.insert (nodeId node) node acc) Map.empty (concat dupNodes)
 
@@ -322,7 +346,7 @@ reproduceSpecies
         -- since genomeWithFitnesses is not empty, this is guaranteed to be a Just
         Just parent1 <- Random.chooseWith getWeight genomeWithFitnesses
         Just parent2 <- Random.chooseWith getWeight genomeWithFitnesses
-        offspring <- crossover parent1 parent2
+        offspring <- crossover (geneDisableP mutateParams) parent1 parent2
         mutateGenome weightRange mutateParams ginVar offspring
 
       -- copy the champion to the next generation without mutation
