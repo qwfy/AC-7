@@ -215,6 +215,12 @@ zipEdges lefts rights =
     increaseR = increaseIndex (rLength - 1)
 
 
+-- | Cross over two genomes to get a new one.
+--
+-- At the matching position, the random one is chosen.
+-- At the mismatch position:
+--   If there is a more fit genome, the disjoint and excess genes are always chosen from it.
+--   If the fitnesses are equal, then genes from both are included.
 crossover :: (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
 crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
   let alignedEdges = zipEdges (edges left) (edges right)
@@ -232,27 +238,25 @@ crossover (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitne
   let pickRight edge =
         (edge, [nodes right Map.! inNodeId edge, nodes right Map.! outNodeId edge])
 
-  -- TODO @incomplete: confirm that the node is calculated correctly
   let (finalEdges, dupNodes) =
         zip triggers alignedEdges
           |> map (\case
-              (isLeft, Both l r) ->
-                Just $ if isLeft then pickLeft l else pickRight r
-              (isLeft, Sinistra _ l) ->
-                case winner of
-                  Just (Left ()) -> Just $ pickLeft l
-                  Just (Right ()) -> Nothing
-                  -- in the case of a tie, each conflict position is picked independently
-                  -- TODO @incomplete: this differs from the section 2.2 (aside of Figure 3)
-                  -- of the paper:
-                  -- Efficient Reinforcement Learning through Evolving Neural Network Topologies
-                  Nothing -> if isLeft then Just (pickLeft l) else Nothing
-              (isLeft, Destra _ r) ->
-                case winner of
-                  Just (Left ()) -> Nothing
-                  Just (Right ()) -> Just $ pickRight r
-                  -- in the case of a tie, each conflict position is picked independently
-                  Nothing -> if isLeft then Nothing else Just (pickRight r))
+               (isLeft, Both l r) ->
+                 Just $ if isLeft then pickLeft l else pickRight r
+               (isLeft, Sinistra _ l) ->
+                 case winner of
+                   -- if there is no winner, include both
+                   Nothing -> Just $ pickLeft l
+                   -- otherwise, always choose from the winner
+                   Just (Left ()) -> Just $ pickLeft l
+                   Just (Right ()) -> Nothing
+               (isLeft, Destra _ r) ->
+                 case winner of
+                   -- if there is no winner, include both
+                   Nothing -> Just $ pickRight r
+                   -- otherwise, always choose from the winner
+                   Just (Left ()) -> Nothing
+                   Just (Right ()) -> Just $ pickRight r)
           |> filter Data.Maybe.isJust |> map Data.Maybe.fromJust
           |> unzip
 
