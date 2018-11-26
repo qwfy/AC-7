@@ -535,21 +535,3 @@ genomeValue genome@Genome{nodes} sensorValues =
     |> filter (\(_, node) -> kind node == Output)
     |> map (\(_, n) -> nodeValue n genome sensorValues)
 
-visOneGen :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Generation -> IO ()
-visOneGen fitness visDir genNumber (Generation gen) = do
-  genDir <- liftM (visDir </>) (parseRelDir ("generation=" ++ show genNumber))
-  Vector.imapM_ (visOneSpecies fitness genDir) gen
-
-visOneSpecies :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Species -> IO ()
-visOneSpecies fitness parentDir speciesId (Species genomes) = do
-  speciesDir <- parseRelDir ("species=" ++ show speciesId)
-  let dir = parentDir </> speciesDir
-  ensureDir dir
-  Vector.imapM_ (visOneGenome fitness dir) genomes
-
--- TODO @incomplete: differentiate between adjusted fitness and original fitness
-visOneGenome :: (Genome -> OriginalFitness) -> Path Abs Dir -> Int -> Genome -> IO ()
-visOneGenome fitness dir genomeId genome = do
-  let dot = genomeToDot genome $ fitness genome
-  imageFilename <- parseRelFile ("genome=" ++ show genomeId)
-  void $ writeSvg dot (dir </> imageFilename)

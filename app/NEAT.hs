@@ -11,8 +11,6 @@ module Main (main) where
 import NEAT.Data
 import qualified NEAT.Algo
 import qualified NEAT.XOR as Problem
-import qualified Data.Vector as Vector
-import Data.Vector (Vector)
 import Path
 import Path.IO
 import Control.Monad

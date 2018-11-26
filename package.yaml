@@ -30,6 +30,9 @@ dependencies:
 - path-io
 - time
 - safe
+- hasbolt
+- data-default
+- text
 
 library:
   source-dirs: src
