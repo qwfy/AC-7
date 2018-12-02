@@ -147,7 +147,7 @@ createGenome pipe fitness (SpeciesNodeId speciesNodeId) genomeId genome@Genome{n
     -- TODO @incomplete: this implementation relies on the fact that
     -- the node ids are globally unique, this can be fixed
     createEdge :: Edge -> (Text, Map Text Bolt.Value)
-    createEdge Edge{inNodeId, outNodeId, weight, enableStatus, gin=GIN gin'} =
+    createEdge Edge{inNodeId, outNodeId, weight, enableStatus, gin} =
       let query = Text.unwords
             [ "match (inNode:Node) where inNode.nodeId = $inNodeId"
             , "match (outNode:Node) where outNode.nodeId = $outNodeId"
@@ -157,5 +157,5 @@ createGenome pipe fitness (SpeciesNodeId speciesNodeId) genomeId genome@Genome{n
             , ("outNodeId", Bolt.T . fromString . show $ outNodeId)
             , ("weight", Bolt.F . realToFrac $ weight)
             , ("enableStatus", Bolt.T . fromString . show $ enableStatus)
-            , ("gin", Bolt.I gin')]
+            , ("gin", Bolt.T . fromString . show $ gin)]
       in (query, params)

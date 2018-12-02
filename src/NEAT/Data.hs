@@ -20,7 +20,7 @@ data Node = Node
   deriving (Eq)
 
 -- | Global Innovation Number.
-newtype GIN = GIN Int
+newtype GIN = GIN Int deriving (Show)
 
 data EnableStatus
   = Enabled
