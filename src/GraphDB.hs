@@ -1,5 +1,6 @@
 module GraphDB
   ( loop
+  , Poison(..)
   )
   where
 
@@ -8,9 +9,21 @@ import Control.Monad
 import qualified Database.Bolt as Bolt
 import Data.Text (Text)
 
-loop :: Bolt.BoltCfg -> TBQueue Text -> IO ()
+
+data Poison a
+  = Poison
+  | Payload a
+
+
+loop :: Bolt.BoltCfg -> TBQueue (Poison Text) -> IO ()
 loop boltCfg queryQueue = do
   pipe <- Bolt.connect boltCfg
-  forever $ do
-    query <- atomically $ readTBQueue queryQueue
-    Bolt.run pipe $ Bolt.query_ query
+  go pipe queryQueue
+  where
+    go pipe queue = do
+      query' <- atomically $ readTBQueue queue
+      case query' of
+        Poison -> return ()
+        Payload query -> do
+          Bolt.run pipe $ Bolt.query_ query
+          go pipe queue
