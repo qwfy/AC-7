@@ -17,7 +17,7 @@ The database is designed as follows:
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module NEAT.Dump
+module NEAT.Store
   ( createRun
   , createGeneration
   , createSpecies
