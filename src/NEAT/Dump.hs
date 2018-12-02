@@ -16,6 +16,7 @@ import Data.UUID (UUID)
 
 newtype GenerationSn = GenerationSn Int
 newtype SpeciesSn = SpeciesSn Int
+newtype GenomeId = GenomeId UUID
 
 newtype RunNodeId = RunNodeId Bolt.Value
 newtype GenerationNodeId = GenerationNodeId Bolt.Value
@@ -62,3 +63,46 @@ createSpecies (GenerationNodeId generationNodeId) (SpeciesSn speciesSn) = do
     params = Map.fromList
       [ ("generationNodeId", generationNodeId)
       , ("speciesSn", Bolt.I speciesSn)]
+
+
+createGenome :: (Genome -> OriginalFitness) -> SpeciesNodeId -> GenomeId -> Genome -> IO ()
+createGenome fitness (SpeciesNodeId speciesNodeId) (GenomeId genomeId) genome@Genome{nodes, edges} =
+  let createNodes = map createNode nodes
+      createEdges = map createEdge edges
+  in mapM_ (Bolt.run . uncurry . Bolt.queryP_) (createNodes ++ createEdges)
+  where
+    createGenomeVirtual :: (Text, Map Text Bolt.Value)
+    createGenomeVirtual =
+      let query = intercalate ","
+            [ "match (species:Species) where id(species) = $speciesNodeId"
+            , "create (genome:Genome {genomeId:$genomeId, fitnness:fitness})"
+            , "genome -[:GENOME_OF]-> species"]
+          params = Map.fromList
+            [ ("speciesNodeId", speciesNodeId)
+            , ("genomeId", Bolt.T . fromString . show $ genomeId)
+            , ("fitness", Bolt.F $ fitness genome)]
+      in (query, params)
+
+    createNode :: Node -> (Text, Map Text Bolt.Value)
+    createNode Node{nodeId, kind} =
+      let query = "create (node:Node $properties)"
+          properties = Map.fromList
+            -- TODO @incomplete: should we rely on the show instance?
+            [ ("nodeId", Bolt.T . fromString . show $ nodeId)
+            , ("kind", Bolt.T . fromString . show $ kind)
+            , ("genomeId", Bolt.I . fromString . show $ genomeId)]
+      in (query, properties)
+
+    -- TODO @incomplete: this implementation relies on the fact that
+    -- the node ids are globally unique
+    createEdge :: Edge -> (Text, Map Text Bolt.Value)
+    createEdge Edge{inNodeId, outNodeId, weight, enableStatus, GIN gin} =
+      let query = unlines
+            [ "match (inNode:Node) where inNode.nodeId = $inNodeId"
+            , "match (outNode:Node) where outNode.nodeId = $outNodeId"
+            , "inNode -[:INPUT_OF $properties]-> outNode"]
+          properties = Map.fromList
+            [ ("weight", Bolt.F weight)
+            , ("enableStatus", Bolt.T . fromString . show $ enableStatus)
+            , ("gin", Bolt.I gin)]
+      in (query, properties)
