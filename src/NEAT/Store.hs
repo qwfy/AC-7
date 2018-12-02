@@ -98,7 +98,7 @@ createSpecies pipe (GenerationNodeId generationNodeId) speciesSn = do
   where
     query = Text.unwords
       [ "match (generation:Generation) where id(generation) = $generationNodeId"
-      , "create (species:Species) {speciesSn:$speciesSn},"
+      , "create (species:Species {speciesSn:$speciesSn}),"
       , "(species) -[:SPECIES_OF]-> (generation)"
       , "return id(species) as speciesNodeId"]
     params = Map.fromList
@@ -121,8 +121,8 @@ createGenome pipe fitness (SpeciesNodeId speciesNodeId) genomeId genome@Genome{n
     createGenomeVirtual =
       let query = Text.unwords
             [ "match (species:Species) where id(species) = $speciesNodeId"
-            , "create (genome:Genome {genomeId:$genomeId, fitnness:fitness}),"
-            , "genome -[:GENOME_OF]-> species"
+            , "create (genome:Genome {genomeId:$genomeId, originalFitness:$originalFitness}),"
+            , "(genome) -[:GENOME_OF]-> (species)"
             , "return id(genome) as genomeId"]
           OriginalFitness originalFitness = fitness genome
           params = Map.fromList
@@ -136,10 +136,11 @@ createGenome pipe fitness (SpeciesNodeId speciesNodeId) genomeId genome@Genome{n
       let query = Text.unwords
             [ "match (genome:Genome) where id(genome) = $genomeNodeId"
             , "create (node:Node {nodeId:$nodeId, kind:$kind}),"
-            , "node -[:NODE_OF]-> genome"]
+            , "(node) -[:NODE_OF]-> (genome)"]
           params = Map.fromList
             -- TODO @incomplete: should we rely on the show instance?
-            [ ("nodeId", Bolt.T . fromString . show $ nodeId)
+            [ ("genomeNodeId", genomeNodeId)
+            , ("nodeId", Bolt.T . fromString . show $ nodeId)
             , ("kind", Bolt.T . fromString . show $ kind)]
       in (query, params)
 
@@ -150,9 +151,11 @@ createGenome pipe fitness (SpeciesNodeId speciesNodeId) genomeId genome@Genome{n
       let query = Text.unwords
             [ "match (inNode:Node) where inNode.nodeId = $inNodeId"
             , "match (outNode:Node) where outNode.nodeId = $outNodeId"
-            , "inNode -[:INPUT_OF $properties]-> outNode"]
+            , "create (inNode) -[:INPUT_OF {weight:$weight, enableStatus:$enableStatus, gin:$gin}]-> (outNode)"]
           params = Map.fromList
-            [ ("weight", Bolt.F . realToFrac $ weight)
+            [ ("inNodeId", Bolt.T . fromString . show $ inNodeId)
+            , ("outNodeId", Bolt.T . fromString . show $ outNodeId)
+            , ("weight", Bolt.F . realToFrac $ weight)
             , ("enableStatus", Bolt.T . fromString . show $ enableStatus)
             , ("gin", Bolt.I gin')]
       in (query, params)

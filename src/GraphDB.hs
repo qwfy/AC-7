@@ -8,7 +8,6 @@ module GraphDB
 
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Monad
 import qualified Database.Bolt as Bolt
 import Data.Text (Text)
 import Data.Default
@@ -23,7 +22,7 @@ config :: Bolt.BoltCfg
 config = def
   { Bolt.host = "127.0.0.1"
   , Bolt.user = "neo4j"
-  , Bolt.password = "root"}
+  , Bolt.password = "bigblueyellowsky7789"}
 
 start :: Bolt.BoltCfg -> TBQueue (Poison Text) -> IO ThreadId
 start boltCfg queryQueue = do
