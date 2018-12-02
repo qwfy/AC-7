@@ -2,4 +2,6 @@ module Data.AC7 where
 
 
 newtype RunId = RunId String
-  deriving (Show)
+
+instance Show RunId where
+  show (RunId x) = "RunId " ++ x
