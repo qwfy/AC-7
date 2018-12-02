@@ -27,7 +27,7 @@ import Data.AC7
 import NEAT.Data
 import NEAT.Store
 import Random
-import GraphDB
+import GraphDb
 import Util
 
 
@@ -504,7 +504,7 @@ simulate
   fitness compatibilityParams
   weightRange mutateParams ginVar
   numGenerations (Population initPopulation) = do
-    pipe <- Bolt.connect GraphDB.config
+    pipe <- Bolt.connect GraphDb.config
     runNodeId <- NEAT.Store.createRun pipe runId
     let initGen = Generation . Vector.singleton . Species $ initPopulation
     NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen

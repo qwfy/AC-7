@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module GraphDB
+module GraphDb
   ( start
   , config
   , Poison(..)
