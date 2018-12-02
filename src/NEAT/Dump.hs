@@ -1,7 +1,23 @@
+{-
+Description: Dump a run to Neo4j
+
+The database is designed as follows:
+
+- Each run is identified by a globally unique run id
+- A run has many generations
+- Each generation is identified by a sequential number, which is local to the run
+- A generation has many species
+- Each species is identified by a sequential number, which is local to the generation
+- A species has many genomes
+- Each genome is identified by a globally unique genome id
+- A genome has many nodes and edges
+- Each node is identified by a globally unique node id
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Dump
+module NEAT.Dump
   ( createRun
   , createGeneration
   , createSpecies
@@ -10,10 +26,12 @@ module Dump
 
 import NEAT.Data
 import qualified Data.Map.Strict as Map
+import Data.Map (Map)
 import Data.Text (Text)
 import qualified Database.Bolt as Bolt
 import Data.UUID (UUID)
 
+newtype RunId = RunId Text
 newtype GenerationSn = GenerationSn Int
 newtype SpeciesSn = SpeciesSn Int
 newtype GenomeId = GenomeId UUID
@@ -31,12 +49,12 @@ createRun runId = do
     query = unwords
       -- TODO @incomplete: what is "create unique"
       [ "create (run:Run {runId:$runId})"
-      , "return id(run) as runNodeId"']
+      , "return id(run) as runNodeId"]
     params = Map.fromList [("runId", Bolt.T runId)]
 
 
 createGeneration :: RunNodeId -> GenerationSn -> IO GenerationNodeId
-createGeneration (RunNodeId runNodeId) (GenerationSn generationSn)
+createGeneration (RunNodeId runNodeId) (GenerationSn generationSn) = do
   record:[] <- Bolt.run $ Bolt.queryP query params
   GenerationNodeId <$> Bolt.at record "generationNodeId"
   where
@@ -96,8 +114,8 @@ createGenome fitness (SpeciesNodeId speciesNodeId) (GenomeId genomeId) genome@Ge
     -- TODO @incomplete: this implementation relies on the fact that
     -- the node ids are globally unique
     createEdge :: Edge -> (Text, Map Text Bolt.Value)
-    createEdge Edge{inNodeId, outNodeId, weight, enableStatus, GIN gin} =
-      let query = unlines
+    createEdge Edge{inNodeId, outNodeId, weight, enableStatus, gin=GIN gin} =
+      let query = fromString $ unlines
             [ "match (inNode:Node) where inNode.nodeId = $inNodeId"
             , "match (outNode:Node) where outNode.nodeId = $outNodeId"
             , "inNode -[:INPUT_OF $properties]-> outNode"]
