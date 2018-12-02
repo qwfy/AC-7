@@ -38,8 +38,8 @@ import Data.String
 
 import Data.AC7
 
-newtype GenerationSn = GenerationSn Int
-newtype SpeciesSn = SpeciesSn Int
+newtype GenerationSn = GenerationSn Int deriving (Show)
+newtype SpeciesSn = SpeciesSn Int deriving (Show)
 newtype GenomeId = GenomeId UUID deriving (Show)
 
 newtype RunNodeId = RunNodeId Bolt.Value
@@ -77,7 +77,7 @@ storeGeneration pipe fitness runNodeId generationSn (Generation generation) = do
       createGenome pipe fitness speciesNodeId genomeId genome
 
 createGeneration :: Bolt.Pipe -> RunNodeId -> GenerationSn -> IO GenerationNodeId
-createGeneration pipe (RunNodeId runNodeId) (GenerationSn generationSn) = do
+createGeneration pipe (RunNodeId runNodeId) generationSn = do
   [record] <- Bolt.run pipe $ Bolt.queryP query params
   GenerationNodeId <$> Bolt.at record "generationNodeId"
   where
@@ -88,11 +88,11 @@ createGeneration pipe (RunNodeId runNodeId) (GenerationSn generationSn) = do
       , "return id(generation) as generationNodeId"]
     params = Map.fromList
       [ ("runNodeId", runNodeId)
-      , ("generationSn", Bolt.I generationSn)]
+      , ("generationSn", Bolt.T . fromString . show $ generationSn)]
 
 
 createSpecies :: Bolt.Pipe -> GenerationNodeId -> SpeciesSn -> IO SpeciesNodeId
-createSpecies pipe (GenerationNodeId generationNodeId) (SpeciesSn speciesSn) = do
+createSpecies pipe (GenerationNodeId generationNodeId) speciesSn = do
   [record] <- Bolt.run pipe $ Bolt.queryP query params
   SpeciesNodeId <$> Bolt.at record "speciesNodeId"
   where
@@ -103,7 +103,7 @@ createSpecies pipe (GenerationNodeId generationNodeId) (SpeciesSn speciesSn) = d
       , "return id(species) as speciesNodeId"]
     params = Map.fromList
       [ ("generationNodeId", generationNodeId)
-      , ("speciesSn", Bolt.I speciesSn)]
+      , ("speciesSn", Bolt.T . fromString . show $ speciesSn)]
 
 
 -- | Create a genome identified by 'GenomeId' and belongs to the species identified by 'SpeciesNodeId'.
