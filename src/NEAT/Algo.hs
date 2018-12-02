@@ -21,15 +21,14 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
 import Safe
-import Path
-import Path.IO
+import qualified Database.Bolt as Bolt
 
-import Util
-
+import Data.AC7
 import NEAT.Data
-import NEAT.Vis
-import Vis
+import NEAT.Store
 import Random
+import GraphDB
+import Util
 
 
 -- TODO @incomplete: Things to consider:
@@ -495,20 +494,23 @@ makeInitPopulation Params{numInitPopulation, weightRange, numInNodes, numOutNode
   genomes <- Vector.generateM numInitPopulation (\_ -> makeInitGenome weightRange numInNodes numOutNodes ginVar)
   return $ Population genomes
 
-simulate :: (Genome -> OriginalFitness) -> CompatibilityParams
+simulate :: RunId
+         -> (Genome -> OriginalFitness) -> CompatibilityParams
          -> (Float, Float) -> MutateParams -> TVar GIN
          -> Int -> Population
-         -> Path Abs Dir -> IO Generation
+         -> IO Generation
 simulate
+  runId
   fitness compatibilityParams
   weightRange mutateParams ginVar
-  numGenerations (Population initPopulation)
-  visDir = do
+  numGenerations (Population initPopulation) = do
+    pipe <- Bolt.connect GraphDB.config
+    runNodeId <- NEAT.Store.createRun pipe runId
     let initGen = Generation . Vector.singleton . Species $ initPopulation
-    visOneGen fitness visDir 0 initGen
-    foldM (\prevGen genNum -> do
+    NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
+    foldM (\prevGen genSn -> do
       newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
-      visOneGen fitness visDir genNum newGen
+      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn genSn) initGen
       return newGen
       ) initGen [1 .. numGenerations]
 

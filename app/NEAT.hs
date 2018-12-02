@@ -11,29 +11,27 @@ module Main (main) where
 import NEAT.Data
 import qualified NEAT.Algo
 import qualified NEAT.XOR as Problem
-import Path
-import Path.IO
+import qualified Log as Log
 import Control.Monad
 
 import Util
+import Data.AC7
 
 main :: IO ()
 main = do
-  runId <- currentTime
-  putStrLn . unwords $
-    ["starting run:", runId]
-  putStrLn . unwords $
-    ["solving problem:", name Problem.params]
+  runId <- RunId <$> currentTime
+
+  Log.info ["starting run:", show runId]
+  Log.info ["solving problem:", name Problem.params]
+
   ginVar <- NEAT.Algo.makeGINTVar (GIN 0)
   initPopulation <- NEAT.Algo.makeInitPopulation Problem.params ginVar
-  let numGenerations = numGuessedGenerations Problem.params
-  visDir <- liftM2 (\a b -> a </> [reldir|visualization|] </> b) getCurrentDir (parseRelDir runId)
   void $ NEAT.Algo.simulate
+           runId
            Problem.fitness
            (compatibilityParams Problem.params)
            (weightRange Problem.params)
            (mutateParams Problem.params)
            ginVar
-           numGenerations
+           (numGuessedGenerations Problem.params)
            initPopulation
-           visDir

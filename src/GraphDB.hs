@@ -1,5 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module GraphDB
   ( start
+  , config
   , Poison(..)
   )
   where
@@ -9,12 +11,19 @@ import Control.Concurrent.STM
 import Control.Monad
 import qualified Database.Bolt as Bolt
 import Data.Text (Text)
+import Data.Default
 
 
 data Poison a
   = Poison
   | Payload a
 
+-- TODO @incomplete: read this from a config file
+config :: Bolt.BoltCfg
+config = def
+  { Bolt.host = "127.0.0.1"
+  , Bolt.user = "neo4j"
+  , Bolt.password = "root"}
 
 start :: Bolt.BoltCfg -> TBQueue (Poison Text) -> IO ThreadId
 start boltCfg queryQueue = do

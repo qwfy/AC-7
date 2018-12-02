@@ -12,7 +12,7 @@ newtype NodeId = NodeId Data.UUID.UUID
   deriving (Eq, Ord, Show)
 
 data NodeKind = Sensor | Hidden | Output
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data Node = Node
   { nodeId :: NodeId
@@ -20,9 +20,12 @@ data Node = Node
   deriving (Eq)
 
 -- | Global Innovation Number.
-newtype GIN = GIN Integer
+newtype GIN = GIN Int
 
-data EnableStatus = Enabled | Disabled
+data EnableStatus
+  = Enabled
+  | Disabled
+  deriving (Show)
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
