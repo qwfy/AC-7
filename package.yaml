@@ -33,6 +33,7 @@ dependencies:
 - hasbolt
 - data-default
 - text
+- optparse-applicative
 
 library:
   source-dirs: src

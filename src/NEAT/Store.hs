@@ -18,7 +18,8 @@ The database is designed as follows:
 {-# LANGUAGE NamedFieldPuns #-}
 
 module NEAT.Store
-  ( createRun
+  ( createConstraint
+  , createRun
   , storeGeneration
   , GenerationSn(..)
   )
@@ -47,7 +48,23 @@ newtype GenerationNodeId = GenerationNodeId Bolt.Value
 newtype SpeciesNodeId = SpeciesNodeId Bolt.Value
 newtype GenomeNodeId = GenomeNodeId Bolt.Value
 
--- TODO @incomplete: constraint
+createConstraint :: Bolt.Pipe -> IO ()
+createConstraint pipe =
+  mapM_ (Bolt.run pipe . Bolt.query_) constraints
+  where
+    constraints =
+      [ "create constraint on (run:Run) assert run.runId is unique"
+      , "create constraint on (genome:Genome) assert genome.genomeId is unique"
+      , "create constraint on (node:Node) assert node.nodeId is unique"
+
+      , "create constraint on (run:Run) assert exists(run.runId)"
+      , "create constraint on (generation:Generation) assert exists(generation.generationSn)"
+      , "create constraint on (species:Species) assert exists(species.speciesSn)"
+      , "create constraint on (genome:Genome) assert exists(genome.genomeId)"
+      , "create constraint on (genome:Genome) assert exists(genome.originalFitness)"
+      , "create constraint on (node:Node) assert exists(node.nodeId)"
+      , "create constraint on (node:Node) assert exists(node.kind)"
+      ]
 
 createRun :: Bolt.Pipe -> RunId -> IO RunNodeId
 createRun pipe runId = do
