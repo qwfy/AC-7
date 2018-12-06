@@ -295,16 +295,14 @@ crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness r
 
   let finalNodes = foldr (\node acc -> Map.insert (nodeId node) node acc) Map.empty (concat dupNodes)
 
-  (newNodes, newEdges) <- replaceNodeId (finalNodes, Vector.fromList finalEdges)
-  let child = Genome
-        { nodes = newNodes
-        , edges = newEdges
-        }
+  child <- replaceNodeId $ Genome
+    { nodes = finalNodes
+    , edges = Vector.fromList finalEdges}
 
   return child
 
-replaceNodeId :: (Map NodeId Node, Vector Edge) -> IO (Map NodeId Node, Vector Edge)
-replaceNodeId (nodes, edges) = do
+replaceNodeId :: Genome -> IO Genome
+replaceNodeId old@Genome{nodes, edges} = do
   newIds <- replicateM (Map.size nodes) (NodeId <$> Data.UUID.V4.nextRandom)
   let (oldIds, oldNodes) = unzip . Map.assocs $ nodes
   let newNodes = zip newIds oldNodes
@@ -314,9 +312,8 @@ replaceNodeId (nodes, edges) = do
   let newEdges = flip Vector.map edges (\edge@Edge{inNodeId, outNodeId} ->
         let newInNodeId = table Map.! inNodeId
             newOutNodeId = table Map.! outNodeId
-        in edge{inNodeId = newInNodeId, outNodeId = newOutNodeId}
-        )
-  return (newNodes, newEdges)
+        in edge{inNodeId = newInNodeId, outNodeId = newOutNodeId})
+  return $ old{nodes=newNodes, edges=newEdges}
 
 
 -- | This is the equation (1) in the paper.
@@ -368,7 +365,7 @@ reproduceSpecies
 
       -- copy the champion to the next generation without mutation
       -- TODO @incomplete: more aggressive elitism?
-      let champions =
+      let champions' =
             -- TODO @incomplete: do not hard code the 5
             if Vector.length genomeWithFitnesses > 5
               then
@@ -377,6 +374,7 @@ reproduceSpecies
                   Just champion -> Vector.singleton champion
               else
                 Vector.empty
+      champions <- Vector.mapM replaceNodeId champions'
 
       -- maybe reverse the order of the concatenation is more performant,
       -- but this may lead to a bad choice of representative of the species,
