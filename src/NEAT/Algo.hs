@@ -17,6 +17,7 @@ import Data.Vector (Vector)
 import qualified System.Random
 import qualified Random
 import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
@@ -294,12 +295,29 @@ crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness r
 
   let finalNodes = foldr (\node acc -> Map.insert (nodeId node) node acc) Map.empty (concat dupNodes)
 
+  (newNodes, newEdges) <- replaceNodeId (finalNodes, Vector.fromList finalEdges)
   let child = Genome
-        { nodes = finalNodes
-        , edges = Vector.fromList finalEdges
+        { nodes = newNodes
+        , edges = newEdges
         }
 
   return child
+
+replaceNodeId :: (Map NodeId Node, Vector Edge) -> IO (Map NodeId Node, Vector Edge)
+replaceNodeId (nodes, edges) = do
+  newIds <- replicateM (Map.size nodes) (NodeId <$> Data.UUID.V4.nextRandom)
+  let (oldIds, oldNodes) = unzip . Map.assocs $ nodes
+  let newNodes = zip newIds oldNodes
+        |> map (\(newId, node) -> (newId, node{nodeId=newId}))
+        |> Map.fromList
+  let table = Map.fromList $ zip oldIds newIds
+  let newEdges = flip Vector.map edges (\edge@Edge{inNodeId, outNodeId} ->
+        let newInNodeId = table Map.! inNodeId
+            newOutNodeId = table Map.! outNodeId
+        in edge{inNodeId = newInNodeId, outNodeId = newOutNodeId}
+        )
+  return (newNodes, newEdges)
+
 
 -- | This is the equation (1) in the paper.
 compatibility :: (Float, Float, Float) -> Genome -> Genome -> Float
