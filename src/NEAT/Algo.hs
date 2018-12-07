@@ -526,7 +526,7 @@ simulate
     NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
     foldM (\prevGen genSn -> do
       newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
-      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn genSn) initGen
+      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn genSn) newGen
       return newGen
       ) initGen [1 .. numGenerations]
 
