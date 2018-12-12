@@ -42,8 +42,7 @@ import Util
 
 
 makeGINTVar :: GIN -> IO (TVar GIN)
-makeGINTVar initialValue =
-  STM.newTVarIO initialValue
+makeGINTVar = STM.newTVarIO
 
 increaseGIN :: TVar GIN -> STM GIN
 increaseGIN var = do
@@ -446,8 +445,8 @@ speciate compatibilityParams (Generation oldGen) = do
   zero <- Vector.mapM chooseSpeciesRepr oldGen
   let oldPopulation = oldGen
         |> Vector.map (\(Species s) -> s)  -- :: Vector (Vector Genome)
-        |> Vector.toList          -- :: [Vector Genome]
-        |> Vector.concat          -- :: Vector Genome
+        |> Vector.toList                   -- :: [Vector Genome]
+        |> Vector.concat                   -- :: Vector Genome
   foldl' (\acc idv ->
     case Vector.findIndex (\withRepr -> isSameSpecies withRepr idv) acc of
       Nothing ->
@@ -468,6 +467,7 @@ speciate compatibilityParams (Generation oldGen) = do
     |> Generation
     |> return
   where
+    chooseSpeciesRepr :: Species -> IO (Maybe (Genome, Vector Genome))
     chooseSpeciesRepr (Species genomes) = do
       chosen' <- Random.chooseUniformly genomes
       case chosen' of
