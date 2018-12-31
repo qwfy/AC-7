@@ -47,7 +47,7 @@ executables:
     source-dirs:         app
     ghc-options:
     - -threaded
-    - -rtsopts
+    - -rtsopts=all
     - -with-rtsopts=-N
     - -Wall
     - -fno-warn-missing-signatures

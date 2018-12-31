@@ -11,7 +11,10 @@ import Random
 newtype NodeId = NodeId Data.UUID.UUID
   deriving (Eq, Ord, Show)
 
-data NodeKind = Sensor | Hidden | Output
+data NodeKind
+  = Sensor Int -- ^ Sensors are aligned with integers during mating and input feeding, counts from 0
+  | Hidden
+  | Output Int -- ^ Outputs are aligned with integers during mating and output extraction, counts from 0
   deriving (Eq, Show)
 
 data Node = Node

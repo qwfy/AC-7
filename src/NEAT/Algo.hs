@@ -11,6 +11,7 @@ where
 
 import Data.Maybe
 import Data.List
+import GHC.Exts
 import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
@@ -66,8 +67,8 @@ makeNode kind = do
 -- the current implementation where the number of inputs and outputs are fixed before hand
 makeInitGenome :: (Float, Float) -> Int -> Int -> TVar GIN -> IO Genome
 makeInitGenome weightRange numInNodes numOutNodes ginVar = do
-  inNodes <- replicateM numInNodes $ makeNode Sensor
-  outNodes <- replicateM numOutNodes $ makeNode Output
+  inNodes <- mapM (makeNode . Sensor) [0 .. numInNodes - 1]
+  outNodes <- mapM (makeNode . Output) [0 .. numOutNodes - 1]
   edges <- mapM (\(inNode, outNode) -> do
     weight <- System.Random.randomRIO weightRange
     gin <- STM.atomically $ increaseGIN ginVar
@@ -162,7 +163,18 @@ mutateAddEdge old@Genome{nodes, edges} ginVar weightRange =
   -- In the add connection mutation, a single new connection gene with
   -- a random weight is added connecting two previously unconnected nodes.
   let nodeIds = Map.keys nodes
-      allPairs = [(f, t) | f <- nodeIds, t <- nodeIds]
+      notInputIds = nodes
+        |> Map.filter (\Node{kind} ->
+             case kind of
+               Sensor _ -> False
+               Hidden -> True
+               Output _ -> True)
+        |> Map.keys
+      -- NB: #ways-to-connect-nodes#
+      -- connections to Sensor nodes are disallowed
+      -- connections from Output nodes are allowed
+      -- recurrent connections are allowed
+      allPairs = [(f, t) | f <- nodeIds, t <- notInputIds]
       connectedPairs = Vector.toList $ Vector.map (\edge -> (inNodeId edge, outNodeId edge)) edges
       -- TODO @incomplete: can this be more efficient?
       unconnectedPairs = allPairs \\ connectedPairs
@@ -183,44 +195,6 @@ mutateAddEdge old@Genome{nodes, edges} ginVar weightRange =
          let newEdges = Vector.snoc edges newEdge
          return $ old {edges = newEdges}
 
-increaseIndex _ Nothing = Nothing
-increaseIndex maxIndex (Just i) =
-  if i < maxIndex
-    then Just (i + 1)
-    else Nothing
-
--- | NB: This function relies on the fact that the edges are monotonically increasing.
--- TODO @incomplete: should we remove this assumption?
-zipEdges :: Vector Edge -> Vector Edge -> [Trither Edge Edge]
-zipEdges lefts rights =
-  case (Vector.null lefts, Vector.null rights) of
-    (True, True) -> []
-    (True, False) -> map (Destra Excess) (Vector.toList lefts)
-    (False, True) -> map (Sinistra Excess) (Vector.toList rights)
-    (False, False) ->
-      let (_, _, reversed) = foldl' (
-            \acc@(lIndex, rIndex, accEdges) _ ->
-              case (lIndex, rIndex) of
-                (Nothing, Nothing) -> acc
-                (ll@(Just li), rr@Nothing) -> (increaseL ll, rr, Sinistra Excess (lefts Vector.! li) : accEdges)
-                (ll@Nothing, rr@(Just ri)) -> (ll, increaseR rr, Destra Excess (rights Vector.! ri) : accEdges)
-                (ll@(Just li), rr@(Just ri)) ->
-                  case compare li ri of
-                    -- historical markings match
-                    EQ -> (increaseL ll, increaseR rr, Both (lefts Vector.! li) (rights Vector.! ri) : accEdges)
-                    -- 1 2 3 4
-                    -- 1 2 8
-                    LT -> (increaseL ll, rr, Sinistra Disjoint (lefts Vector.! li) : accEdges)
-                    -- 1 2 8
-                    -- 1 2 3 4
-                    GT -> (ll, increaseR rr, Destra Disjoint (rights Vector.! ri) : accEdges)
-            ) (Just 0, Just 0, []) [1 .. lLength + rLength]
-      in reverse reversed
-  where
-    lLength = Vector.length lefts
-    rLength = Vector.length rights
-    increaseL = increaseIndex (lLength - 1)
-    increaseR = increaseIndex (rLength - 1)
 
 mutateDisable :: (Edge, Maybe Edge) -> P -> Edge -> IO Edge
 mutateDisable precondition disableP old =
@@ -243,14 +217,64 @@ mutateDisable precondition disableP old =
         (Edge{enableStatus=Disabled}, Just Edge{enableStatus=Disabled}) -> False
 
 
+-- | NB: This function relies on the fact that the edges are monotonically increasing.
+-- TODO @incomplete: should we remove this assumption?
+zipEdges :: Vector Edge -> Vector Edge -> [Trither Edge Edge]
+zipEdges lefts rights =
+  case (Vector.null lefts, Vector.null rights) of
+    (True, True) -> []
+    (True, False) -> map (Destra Excess) (Vector.toList rights)
+    (False, True) -> map (Sinistra Excess) (Vector.toList lefts)
+    (False, False) ->
+      let (_, _, reversed) = foldl' (
+            \acc@(lIndex, rIndex, accEdges) _ ->
+              case (lIndex, rIndex) of
+                (Nothing, Nothing) -> acc
+                (ll@(Just li), rr@Nothing) -> (increaseL ll, rr, Sinistra Excess (lefts Vector.! li) : accEdges)
+                (ll@Nothing, rr@(Just ri)) -> (ll, increaseR rr, Destra Excess (rights Vector.! ri) : accEdges)
+                (ll@(Just li), rr@(Just ri)) ->
+                  let left = lefts Vector.! li
+                      right = rights Vector.! ri
+                  in case compare (getGin left) (getGin right) of
+                       -- historical markings match
+                       -- 1 2 3
+                       -- 1 2 3
+                       EQ -> (increaseL ll, increaseR rr, Both left right : accEdges)
+                       -- 1 2 3 4 8
+                       -- 1 2     8
+                       LT -> (increaseL ll, rr, Sinistra Disjoint left : accEdges)
+                       -- 1 2     8
+                       -- 1 2 3 4 8
+                       GT -> (ll, increaseR rr, Destra Disjoint right : accEdges)
+            ) (Just 0, Just 0, []) [1 .. maxLGin + maxRGin]
+      in reverse reversed
+  where
+    getGin Edge{gin=GIN x} = x
+    maxLGin = Vector.maximum $ Vector.map getGin lefts
+    maxRGin = Vector.maximum $ Vector.map getGin rights
+    increase _ Nothing = Nothing
+    increase max (Just i) =
+      if i < max
+        then Just (i + 1)
+        else Nothing
+    increaseL = increase (Vector.length lefts - 1)
+    increaseR = increase (Vector.length rights - 1)
+
+
 -- | Cross over two genomes to get a new one.
 --
 -- At the matching position, the random one is chosen.
 -- At the mismatch position:
 --   If there is a more fit genome, the disjoint and excess genes are always chosen from it.
 --   If the fitnesses are equal, then genes from both are included.
+--
+-- TODO @incomplete: this may produce ill-formed offsprings
+-- TODO @incomplete: link deduplicaiton
+-- TODO @incomplete: are Sensor and Output nodes always aligned?
 crossover :: P -> (Genome, AdjustedFitness) -> (Genome, AdjustedFitness) -> IO Genome
-crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness rightFitness) = do
+crossover disableP (left', AdjustedFitness leftFitness) (right', AdjustedFitness rightFitness) = do
+  (left, right) <- unifyBoundaryNodeId left' right'
+
   let alignedEdges = zipEdges (edges left) (edges right)
   -- this is a list of random bools used to break ties
   triggers <- Random.triggers (length alignedEdges) (P 0.5)
@@ -300,6 +324,86 @@ crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness r
 
   return child
 
+
+unifyBoundaryNodeId :: Genome -> Genome -> IO (Genome, Genome)
+unifyBoundaryNodeId p1@Genome{nodes=nodes1} p2@Genome{nodes=nodes2} = do
+  let numInputs = max (countInputs nodes1) (countInputs nodes2)
+  let numOutputs = max (countOutputs nodes1) (countOutputs nodes2)
+  newInputIds <- Vector.replicateM numInputs Random.newGUID
+  newOutputIds <- Vector.replicateM numOutputs Random.newGUID
+  return (replace newInputIds newOutputIds p1, replace newInputIds newOutputIds p2)
+
+  where
+
+    countInputs nodes = nodes
+      |> Map.filter (\Node{kind} ->
+           case kind of
+             Sensor _ -> True
+             Hidden -> False
+             Output _ -> False)
+      |> Map.size
+
+    countOutputs nodes = nodes
+      |> Map.filter (\Node{kind} ->
+           case kind of
+             Sensor _ -> False
+             Hidden -> False
+             Output _ -> True)
+      |> Map.size
+
+    replace newInputIds newOutputIds g@Genome{nodes, edges} =
+      let (newNodes', (inLookup, outLookup)) =
+            mapFold (Map.elems nodes) ([], []) (\n@Node{nodeId=NodeId oldNodeId, kind} acc@(accIns, accOuts) ->
+              case kind of
+                Sensor i ->
+                  let newNodeId = newInputIds Vector.! i
+                  in (n{nodeId=NodeId newNodeId}, ((oldNodeId, newNodeId) : accIns, accOuts))
+                Hidden ->
+                  (n, acc)
+                Output i ->
+                  let newNodeId = newOutputIds Vector.! i
+                  in (n{nodeId=NodeId newNodeId}, (accIns, (oldNodeId, newNodeId) : accOuts)))
+          newNodes = Map.fromList (map (\n -> (nodeId n, n)) newNodes')
+
+          newEdges = edges
+            |> Vector.map (\e@Edge{inNodeId=NodeId inNodeId, outNodeId=NodeId outNodeId} ->
+
+                 let -- Output node can also be in the position of inNodeId
+                     -- but Sensor node can not be in the position of outNodeId
+                     -- see #ways-to-connect-nodes
+                     newInNodeId = keyGet inNodeId (inLookup ++ outLookup) inNodeId
+                     newOutNodeId = keyGet outNodeId outLookup outNodeId
+                in e{inNodeId=NodeId newInNodeId, outNodeId=NodeId newOutNodeId})
+      in g{nodes=newNodes, edges=newEdges}
+
+
+mapFold :: [x] -> init -> (x -> init -> (y, init)) -> ([y], init)
+mapFold xs init f =
+  let (revYs, finalAcc) = foldl' g ([], init) xs
+  in (reverse revYs, finalAcc)
+  where
+    g (accYs, accInit) x =
+      let (y, newInit) = f x accInit
+      in (y : accYs, newInit)
+
+
+keyFind :: Eq a => a -> [(a, b)] -> Maybe b
+keyFind k kvs =
+  fmap snd (find test kvs)
+  where
+    test kv = fst kv == k
+
+
+keyGet :: Eq a => a -> [(a, b)] -> b -> b
+keyGet k kvs def =
+  case keyFind k kvs of
+    Nothing -> def
+    Just v -> v
+
+
+-- | An offspring should have completely new node ids,
+-- for there is an UNIQUE constraint in the database.
+-- This function replace all node ids in the 'old' genome with newly created ones.
 replaceNodeId :: Genome -> IO Genome
 replaceNodeId old@Genome{nodes, edges} = do
   newIds <- replicateM (Map.size nodes) (NodeId <$> Random.newGUID)
@@ -533,12 +637,8 @@ simulate
 
 -- TODO @incomplete: these fromJust looks dirty
 nodeValue :: Node -> Genome -> [Float] -> Float
-nodeValue n@Node{kind=Sensor} Genome{nodes} sensorValues =
-  let nodesAsc = Map.toAscList nodes
-        |> map snd
-        |> filter ((== Sensor) . kind)
-      index = fromJust $ elemIndex n nodesAsc
-  in sensorValues !! index
+nodeValue Node{kind=Sensor index} _ sensorValues =
+  sensorValues !! index
 nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues =
   Vector.filter (\edge -> outNodeId edge == nodeId) edges
     |> Vector.map (\edge -> weight edge * nodeValue (getInNode edge) genome sensorValues)
@@ -547,9 +647,15 @@ nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues =
     getInNode edge = fromJust $
       Map.lookup (inNodeId edge) nodes
 
+
 genomeValue :: Genome -> [Float] -> [Float]
 genomeValue genome@Genome{nodes} sensorValues =
-  Map.toAscList nodes
-    |> filter (\(_, node) -> kind node == Output)
-    |> map (\(_, n) -> nodeValue n genome sensorValues)
-
+  nodes
+    |> Map.filter (\node ->
+         case kind node of
+           Sensor _ -> False
+           Hidden -> False
+           Output _ -> True)
+    |> Map.elems
+    |> sortWith (\Node{kind=Output index} -> index)
+    |> map (\n -> nodeValue n genome sensorValues)
