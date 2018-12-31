@@ -53,7 +53,7 @@ increaseGIN var = do
 
 makeNode :: NodeKind -> IO Node
 makeNode kind = do
-  nodeId <- Data.UUID.V4.nextRandom
+  nodeId <- Random.newGUID
   return $ Node {nodeId = NodeId nodeId, kind = kind}
 
 -- | Make a genome for the initial population, according to the section 3.4 of the paper:
@@ -302,7 +302,7 @@ crossover disableP (left, AdjustedFitness leftFitness) (right, AdjustedFitness r
 
 replaceNodeId :: Genome -> IO Genome
 replaceNodeId old@Genome{nodes, edges} = do
-  newIds <- replicateM (Map.size nodes) (NodeId <$> Data.UUID.V4.nextRandom)
+  newIds <- replicateM (Map.size nodes) (NodeId <$> Random.newGUID)
   let (oldIds, oldNodes) = unzip . Map.assocs $ nodes
   let newNodes = zip newIds oldNodes
         |> map (\(newId, node) -> (newId, node{nodeId=newId}))

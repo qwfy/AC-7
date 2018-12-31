@@ -5,6 +5,7 @@ module Random
   , choose
   , chooseWith
   , chooseUniformly
+  , newGUID
   )
 where
 
@@ -12,6 +13,11 @@ where
 import Data.List
 import qualified System.Random
 import Control.Monad
+import Data.UUID (UUID)
+import qualified Data.UUID.V4
+
+newGUID :: IO UUID
+newGUID = Data.UUID.V4.nextRandom
 
 -- | Probability
 newtype P = P Float

@@ -36,6 +36,7 @@ import Data.UUID (UUID)
 import Data.UUID.V4
 import qualified Data.Vector as Vector
 import Data.String
+import Random
 
 import Data.AC7
 
@@ -90,7 +91,7 @@ storeGeneration pipe fitness runNodeId generationSn (Generation generation) = do
     --  store each genome in the species
     flip Vector.mapM_ species $ \genome -> do
       -- TODO @incomplete: this id is created locally, should we create this at the business level?
-      genomeId <- GenomeId <$> Data.UUID.V4.nextRandom
+      genomeId <- GenomeId <$> Random.newGUID
       createGenome pipe fitness speciesNodeId genomeId genome
 
 createGeneration :: Bolt.Pipe -> RunNodeId -> GenerationSn -> IO GenerationNodeId
