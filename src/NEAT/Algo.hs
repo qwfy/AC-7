@@ -636,16 +636,31 @@ simulate
 
 
 -- TODO @incomplete: these fromJust looks dirty
-nodeValue :: Node -> Genome -> [Float] -> Float
-nodeValue Node{kind=Sensor index} _ sensorValues =
-  sensorValues !! index
-nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues =
+nodeValue :: Node -> Genome -> [Float] -> Map NodeId Float -> (Float, Map NodeId Float)
+nodeValue Node{kind=Sensor index} _ sensorValues env =
+  (sensorValues !! index, env)
+nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
   Vector.filter (\edge -> outNodeId edge == nodeId) edges
-    |> Vector.map (\edge -> weight edge * nodeValue (getInNode edge) genome sensorValues)
-    |> Vector.sum
+    |> Vector.foldl' nodeValueOfOneEdge (0.0, env)
   where
     getInNode edge = fromJust $
       Map.lookup (inNodeId edge) nodes
+
+    -- TODO @incomplete: is this faithful to the original implementation
+    nodeValueOfOneEdge (accSum, accEnv) edge@Edge{inNodeId, outNodeId, weight} =
+      if inNodeId == outNodeId
+        then
+          case Map.lookup inNodeId accEnv of
+            Nothing ->
+              let newAccSum = accSum + weight * 0.0
+              in (newAccSum, Map.insert inNodeId newAccSum accEnv)
+            Just recurrentV ->
+              let newAccSum = accSum + weight * recurrentV
+              in (newAccSum, Map.insert inNodeId newAccSum accEnv)
+        else
+          let (inNodeV, newAccEnv) = nodeValue (getInNode edge) genome sensorValues accEnv
+              newAccSum = accSum + weight * inNodeV
+          in (newAccSum, newAccEnv)
 
 
 genomeValue :: Genome -> [Float] -> [Float]
@@ -658,4 +673,5 @@ genomeValue genome@Genome{nodes} sensorValues =
            Output _ -> True)
     |> Map.elems
     |> sortWith (\Node{kind=Output index} -> index)
-    |> map (\n -> nodeValue n genome sensorValues)
+    |> map (\n -> nodeValue n genome sensorValues Map.empty)
+    |> map fst
