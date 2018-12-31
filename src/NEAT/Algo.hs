@@ -640,7 +640,7 @@ nodeValue :: Node -> Genome -> [Float] -> Map NodeId Float -> (Float, Map NodeId
 nodeValue Node{kind=Sensor index} _ sensorValues env =
   (sensorValues !! index, env)
 nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
-  Vector.filter (\edge -> outNodeId edge == nodeId) edges
+  Vector.filter (\edge -> outNodeId edge == nodeId && enableStatus edge == Enabled) edges
     |> Vector.foldl' nodeValueOfOneEdge (0.0, env)
   where
     getInNode edge = fromJust $

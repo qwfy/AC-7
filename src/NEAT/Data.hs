@@ -28,7 +28,7 @@ newtype GIN = GIN Int deriving (Show)
 data EnableStatus
   = Enabled
   | Disabled
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Edge = Edge
   -- TODO @incomplete: add the bias
