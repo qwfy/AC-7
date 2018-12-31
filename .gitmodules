@@ -1,0 +1,3 @@
+[submodule "NEAT-C"]
+	path = NEAT-C
+	url = git@github.com:qwfy/NEAT-C.git
