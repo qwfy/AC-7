@@ -632,11 +632,26 @@ simulate
       ) initGen [1 .. numGenerations]
 
 
+isSensorNode :: Node -> Bool
+isSensorNode Node{kind} =
+  case kind of
+    Sensor _ -> True
+    Hidden   -> False
+    Output _ -> False
+
+isOutputNode :: Node -> Bool
+isOutputNode Node{kind} =
+  case kind of
+    Sensor _ -> False
+    Hidden   -> False
+    Output _ -> True
+
+
 -- TODO @incomplete: these fromJust looks dirty
-nodeValue :: Node -> Genome -> [Float] -> Map NodeId Float -> (Float, Map NodeId Float)
-nodeValue Node{kind=Sensor index} _ sensorValues env =
+nodeValue :: [Float] -> Genome -> Node -> Map NodeId Float -> (Float, Map NodeId Float)
+nodeValue sensorValues _ Node{kind=Sensor index} env =
   (sensorValues !! index, env)
-nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
+nodeValue sensorValues genome@Genome{nodes, edges} Node{nodeId} env =
   Vector.filter (\edge -> outNodeId edge == nodeId && enableStatus edge == Enabled) edges
     |> Vector.foldl' nodeValueOfOneEdge (0.0, env)
   where
@@ -656,23 +671,10 @@ nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
               let newAccSum = accSum + weight * recurrentV
               in (newAccSum, Map.insert inNodeId newAccSum accEnv)
         else
-          let (inNodeV, newAccEnv) = nodeValue (getInNode edge) genome sensorValues accEnv
+          let (inNodeV, newAccEnv) = nodeValue sensorValues genome (getInNode edge) accEnv
               newAccSum = accSum + weight * inNodeV
           in (newAccSum, newAccEnv)
 
-isSensorNode :: Node -> Bool
-isSensorNode Node{kind} =
-  case kind of
-    Sensor _ -> True
-    Hidden   -> False
-    Output _ -> False
-
-isOutputNode :: Node -> Bool
-isOutputNode Node{kind} =
-  case kind of
-    Sensor _ -> False
-    Hidden   -> False
-    Output _ -> True
 
 genomeValue :: Genome -> [Float] -> [Float]
 genomeValue genome@Genome{nodes} sensorValues =
@@ -689,6 +691,6 @@ genomeValue genome@Genome{nodes} sensorValues =
     -- TODO @incomplete: experimenting with map (instead of foldl), if they behave the
     -- same, then prefer map, since it can be parallelized.
     |> flip foldl' ([], Map.empty) (\(accOutputValues, accEnv) node ->
-         let (outputValue, newAccEnv) = nodeValue node genome sensorValues accEnv
+         let (outputValue, newAccEnv) = nodeValue sensorValues genome node accEnv
          in (outputValue:accOutputValues, newAccEnv))
     |> reverse . fst
