@@ -655,6 +655,7 @@ nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
       Map.lookup (inNodeId edge) nodes
 
     -- TODO @incomplete: is this faithful to the original implementation
+    -- TODO @incomplete: activation function (non-linearity)
     nodeValueOfOneEdge (accSum, accEnv) edge@Edge{inNodeId, outNodeId, weight} =
       if inNodeId == outNodeId
         then
