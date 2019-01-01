@@ -625,11 +625,20 @@ simulate
   numGenerations (Population initPopulation) = do
     pipe <- Bolt.connect GraphDb.config
     runNodeId <- NEAT.Store.createRun pipe runId
+
+    putStrLn "generating the initial generation"
     let initGen = Generation . Vector.singleton . Species $ initPopulation
+
+    putStrLn "writing the initial generation"
     NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
+
     foldM (\prevGen genSn -> do
+      putStrLn $ "creating generation " ++ show genSn
       newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
+
+      putStrLn $ "writing generation " ++ show genSn
       NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn genSn) newGen
+
       return newGen
       ) initGen [1 .. numGenerations]
 
