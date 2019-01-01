@@ -12,11 +12,11 @@ where
 import Data.Maybe
 import Data.List
 import GHC.Exts
-import qualified Data.UUID.V4
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
 import qualified System.Random
 import qualified Random
+import Random (P(..))
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import qualified Control.Concurrent.STM as STM
@@ -28,7 +28,6 @@ import qualified Database.Bolt as Bolt
 import Data.AC7
 import NEAT.Data
 import NEAT.Store
-import Random
 import GraphDb
 import Util
 
@@ -253,8 +252,8 @@ zipEdges lefts rights =
     maxLGin = Vector.maximum $ Vector.map getGin lefts
     maxRGin = Vector.maximum $ Vector.map getGin rights
     increase _ Nothing = Nothing
-    increase max (Just i) =
-      if i < max
+    increase ubi (Just i) =
+      if i < ubi
         then Just (i + 1)
         else Nothing
     increaseL = increase (Vector.length lefts - 1)
@@ -377,14 +376,14 @@ unifyBoundaryNodeId p1@Genome{nodes=nodes1} p2@Genome{nodes=nodes2} = do
       in g{nodes=newNodes, edges=newEdges}
 
 
-mapFold :: [x] -> init -> (x -> init -> (y, init)) -> ([y], init)
-mapFold xs init f =
-  let (revYs, finalAcc) = foldl' g ([], init) xs
+mapFold :: [x] -> zero -> (x -> zero -> (y, zero)) -> ([y], zero)
+mapFold xs zero f =
+  let (revYs, finalAcc) = foldl' g ([], zero) xs
   in (reverse revYs, finalAcc)
   where
-    g (accYs, accInit) x =
-      let (y, newInit) = f x accInit
-      in (y : accYs, newInit)
+    g (accYs, accZero) x =
+      let (y, newZero) = f x accZero
+      in (y : accYs, newZero)
 
 
 keyFind :: Eq a => a -> [(a, b)] -> Maybe b

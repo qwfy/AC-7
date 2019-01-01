@@ -31,9 +31,7 @@ import Data.Map (Map)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Database.Bolt as Bolt
-import Data.Default
 import Data.UUID (UUID)
-import Data.UUID.V4
 import qualified Data.Vector as Vector
 import Data.String
 import Random
