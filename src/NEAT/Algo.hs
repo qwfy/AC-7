@@ -679,6 +679,16 @@ genomeValue genome@Genome{nodes} sensorValues =
   nodes
     |> Map.filter isOutputNode
     |> Map.elems
+    -- Evaluate the Output node with the smallest index first,
+    -- so that the evaluation order is deterministic
     |> sortWith (\Node{kind=Output index} -> index)
-    |> map (\n -> nodeValue n genome sensorValues Map.empty)
-    |> map fst
+    -- Since the Output nodes are in the same genome, they are somehow related,
+    -- it is for this reason that we let the calculation of the value of the next
+    -- Output node access the environment the previous node.
+    -- However this will make the calculation sequential, which maybe bad for performance.
+    -- TODO @incomplete: experimenting with map (instead of foldl), if they behave the
+    -- same, then prefer map, since it can be parallelized.
+    |> flip foldl' ([], Map.empty) (\(accOutputValues, accEnv) node ->
+         let (outputValue, newAccEnv) = nodeValue node genome sensorValues accEnv
+         in (outputValue:accOutputValues, newAccEnv))
+    |> reverse . fst
