@@ -89,6 +89,7 @@ makeInitGenome weightRange numInNodes numOutNodes ginVar = do
 -- Connection weights mutate as in any NE system, with each connection either perturbed
 -- or not at each generation.
 -- TODO @incomplete: remove the mutation desion out of this function
+-- TODO @incomplete: Hebbian?
 mutateExistingEdge :: P -> P -> (Float, Float) -> (Float, Float) -> Edge -> IO Edge
 mutateExistingEdge mutateP perturbeP perturbeRange weightRange old = do
   shouldMutate <- Random.trigger mutateP

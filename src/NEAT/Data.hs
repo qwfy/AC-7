@@ -18,9 +18,10 @@ data NodeKind
   deriving (Eq, Show)
 
 data Node = Node
+  -- TODO @incomplete: remove nodeId and use the key of the map as the only source of truth
   { nodeId :: NodeId
   , kind :: NodeKind}
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | Global Innovation Number.
 newtype GIN = GIN Int deriving (Show)
@@ -38,10 +39,12 @@ data Edge = Edge
   , weight       :: Float
   , enableStatus :: EnableStatus
   , gin          :: GIN}
+  deriving (Show)
 
 data Genome = Genome
   { nodes :: Map NodeId Node
   , edges :: Vector Edge}
+  deriving (Show)
 
 data Mismatch = Disjoint | Excess
 
