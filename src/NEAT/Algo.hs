@@ -163,11 +163,7 @@ mutateAddEdge old@Genome{nodes, edges} ginVar weightRange =
   -- a random weight is added connecting two previously unconnected nodes.
   let nodeIds = Map.keys nodes
       notInputIds = nodes
-        |> Map.filter (\Node{kind} ->
-             case kind of
-               Sensor _ -> False
-               Hidden -> True
-               Output _ -> True)
+        |> Map.filter (not . isSensorNode)
         |> Map.keys
       -- NB: #ways-to-connect-nodes#
       -- connections to Sensor nodes are disallowed
@@ -335,19 +331,11 @@ unifyBoundaryNodeId p1@Genome{nodes=nodes1} p2@Genome{nodes=nodes2} = do
   where
 
     countInputs nodes = nodes
-      |> Map.filter (\Node{kind} ->
-           case kind of
-             Sensor _ -> True
-             Hidden -> False
-             Output _ -> False)
+      |> Map.filter isSensorNode
       |> Map.size
 
     countOutputs nodes = nodes
-      |> Map.filter (\Node{kind} ->
-           case kind of
-             Sensor _ -> False
-             Hidden -> False
-             Output _ -> True)
+      |> Map.filter isOutputNode
       |> Map.size
 
     replace newInputIds newOutputIds g@Genome{nodes, edges} =
@@ -671,15 +659,24 @@ nodeValue Node{nodeId} genome@Genome{nodes, edges} sensorValues env =
               newAccSum = accSum + weight * inNodeV
           in (newAccSum, newAccEnv)
 
+isSensorNode :: Node -> Bool
+isSensorNode Node{kind} =
+  case kind of
+    Sensor _ -> True
+    Hidden   -> False
+    Output _ -> False
+
+isOutputNode :: Node -> Bool
+isOutputNode Node{kind} =
+  case kind of
+    Sensor _ -> False
+    Hidden   -> False
+    Output _ -> True
 
 genomeValue :: Genome -> [Float] -> [Float]
 genomeValue genome@Genome{nodes} sensorValues =
   nodes
-    |> Map.filter (\node ->
-         case kind node of
-           Sensor _ -> False
-           Hidden -> False
-           Output _ -> True)
+    |> Map.filter isOutputNode
     |> Map.elems
     |> sortWith (\Node{kind=Output index} -> index)
     |> map (\n -> nodeValue n genome sensorValues Map.empty)
