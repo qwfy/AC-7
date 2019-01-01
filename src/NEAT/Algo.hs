@@ -192,6 +192,7 @@ mutateAddEdge old@Genome{nodes, edges} ginVar weightRange =
          return $ old {edges = newEdges}
 
 
+-- TODO @incomplete: do not disable sensor edges, or should we?
 mutateDisable :: (Edge, Maybe Edge) -> P -> Edge -> IO Edge
 mutateDisable precondition disableP old =
   if predicate
@@ -646,20 +647,32 @@ isOutputNode Node{kind} =
     Hidden   -> False
     Output _ -> True
 
+sigmoid x =
+  -- this value is copied from NEAT-C/neat.cpp
+  let slope = 4.924273
+  in 1 / (1 + exp(- slope * x))
+
+
+nodeValue :: [Float] -> Genome -> Node -> Map NodeId Float -> (Float, Map NodeId Float)
+
+nodeValue sensorValues _genome Node{kind=Sensor index} env =
+  (sensorValues !! index, env)
 
 -- TODO @incomplete: these fromJust looks dirty
-nodeValue :: [Float] -> Genome -> Node -> Map NodeId Float -> (Float, Map NodeId Float)
-nodeValue sensorValues _ Node{kind=Sensor index} env =
-  (sensorValues !! index, env)
 nodeValue sensorValues genome@Genome{nodes, edges} Node{nodeId} env =
-  Vector.filter (\edge -> outNodeId edge == nodeId && enableStatus edge == Enabled) edges
+  edges
+    -- all enabled incoming edges
+    |> Vector.filter (\Edge{outNodeId, enableStatus} ->
+         enableStatus == Enabled && outNodeId == nodeId)
+    -- TODO @incomplete: sort to get deterministic evaluation order
+    -- TODO @incomplete: a better sort algorithm, e.g. sort by distance to Sensors
     |> Vector.foldl' nodeValueOfOneEdge (0.0, env)
+    |> (\(z, finalEnv) -> (sigmoid z, finalEnv))
   where
     getInNode edge = fromJust $
       Map.lookup (inNodeId edge) nodes
 
-    -- TODO @incomplete: is this faithful to the original implementation
-    -- TODO @incomplete: activation function (non-linearity)
+    -- TODO @incomplete: is this faithful to the original implementation?
     nodeValueOfOneEdge (accSum, accEnv) edge@Edge{inNodeId, outNodeId, weight} =
       if inNodeId == outNodeId
         then
