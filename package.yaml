@@ -40,6 +40,7 @@ library:
   ghc-options:
   - -Wall
   - -fno-warn-missing-signatures
+  - -fno-ignore-asserts
 
 executables:
   neat:
@@ -51,5 +52,6 @@ executables:
     - -with-rtsopts=-N
     - -Wall
     - -fno-warn-missing-signatures
+    - -fno-ignore-asserts
     dependencies:
     - NEAT

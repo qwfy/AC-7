@@ -24,6 +24,7 @@ import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
 import Safe
 import qualified Database.Bolt as Bolt
+import Control.Exception
 
 import Data.AC7
 import NEAT.Data
@@ -652,41 +653,96 @@ sigmoid x =
   let slope = 4.924273
   in 1 / (1 + exp(- slope * x))
 
+-- | This is used to handle recurrent connections.
+-- If 'esCounter' > 0, then the corresponding node is being evaluated,
+-- thus, to prevent recursion, any subsequent access of the node's value
+-- should read directly from 'esValue'.
+-- The 'esCounter' should always be greater than or equal to zero.
+data EvaluationStatus = EvaluationStatus
+  { esCounter :: Int
+  , esValue :: Float
+  }
 
-nodeValue :: [Float] -> Genome -> Node -> Map NodeId Float -> (Float, Map NodeId Float)
+type Env = Map NodeId EvaluationStatus
+
+-- | Increase the 'esCounter' before passing the 'Env' to be evaluated,
+-- decrease it when the evaluation is done.
+withOpenNode :: Env -> NodeId -> (Env -> (a, Env)) -> (a, Env)
+withOpenNode env' nodeId f =
+  let (x, newEnv) = f (increase env')
+  in (x, decrease newEnv)
+  where
+    increase env =
+      case Map.lookup nodeId env of
+        Nothing ->
+          let newEs = EvaluationStatus{esCounter=1, esValue=0.0}
+          in Map.insert nodeId newEs env
+        Just es@EvaluationStatus{esCounter} ->
+          let newEs = assert (esCounter >= 0) es{esCounter=esCounter + 1}
+          in Map.insert nodeId newEs env
+    decrease env =
+      -- The "Map.!" is safe, since we just increased nodeId
+      let es@EvaluationStatus{esCounter} = env Map.! nodeId
+          newEs = assert (esCounter >= 1) es{esCounter=esCounter-1}
+      in Map.insert nodeId newEs env
+
+
+nodeValue :: [Float] -> Genome -> Node -> Env -> (Float, Env)
 
 nodeValue sensorValues _genome Node{kind=Sensor index} env =
+  -- If it is a Sensor node, we directly read its value.
   (sensorValues !! index, env)
 
--- TODO @incomplete: these fromJust looks dirty
-nodeValue sensorValues genome@Genome{nodes, edges} Node{nodeId} env =
-  edges
-    -- all enabled incoming edges
-    |> Vector.filter (\Edge{outNodeId, enableStatus} ->
-         enableStatus == Enabled && outNodeId == nodeId)
-    -- TODO @incomplete: sort to get deterministic evaluation order
-    -- TODO @incomplete: a better sort algorithm, e.g. sort by distance to Sensors
-    |> Vector.foldl' nodeValueOfOneEdge (0.0, env)
-    |> (\(z, finalEnv) -> (sigmoid z, finalEnv))
+nodeValue sensorValues genome@Genome{nodes, edges} Node{nodeId=targetNodeId} env' =
+  withOpenNode env' targetNodeId calculate
   where
-    getInNode edge = fromJust $
-      Map.lookup (inNodeId edge) nodes
+    calculate env =
+      edges
+        -- All enabled incoming edges
+        |> Vector.filter (\Edge{outNodeId, enableStatus} ->
+             enableStatus == Enabled && outNodeId == targetNodeId)
+        -- TODO @incomplete: Sort to get deterministic evaluation order
+        -- TODO @incomplete: A better sort algorithm, e.g. sort by distance (hops) to the Sensors
+        |> Vector.foldl' accumulateFromEdge (0.0, env)
+        |> (\(z, accEnv) ->
+             let newZ = sigmoid z
+                 newEnv = updateEsValue targetNodeId newZ accEnv
+             in (newZ, newEnv))
 
-    -- TODO @incomplete: is this faithful to the original implementation?
-    nodeValueOfOneEdge (accSum, accEnv) edge@Edge{inNodeId, outNodeId, weight} =
-      if inNodeId == outNodeId
-        then
-          case Map.lookup inNodeId accEnv of
-            Nothing ->
-              let newAccSum = accSum + weight * 0.0
-              in (newAccSum, Map.insert inNodeId newAccSum accEnv)
-            Just recurrentV ->
-              let newAccSum = accSum + weight * recurrentV
-              in (newAccSum, Map.insert inNodeId newAccSum accEnv)
-        else
-          let (inNodeV, newAccEnv) = nodeValue sensorValues genome (getInNode edge) accEnv
-              newAccSum = accSum + weight * inNodeV
-          in (newAccSum, newAccEnv)
+    -- TODO @incomplete: Is this faithful to the original implementation?
+    -- TODO @incomplete: Add bias
+    -- This calculates
+    --   sum_i(w_i * x_i)
+    -- where
+    --   sum_i means sum over i
+    --   i is index to incoming edges of targetNodeId
+    --   w_i is the edge's weight
+    --   x_i is value of the incoming node of the edge
+    accumulateFromEdge (accSum, accEnv) Edge{inNodeId, weight} =
+      let (inNodeValue, newAccEnv) =
+            case Map.lookup inNodeId accEnv of
+              Just EvaluationStatus{esCounter, esValue} ->
+                -- If the incoming node is currently "open" (means esCounter > 0),
+                -- then we just return its stored esValue, this prevents recursion.
+                -- Otherwise, we recursively call the nodeValue function on the incoming
+                -- node to calculate the value of the incoming node. Note that, since we
+                -- are calculating the summation of the value of the incoming node of the
+                -- incoming edges, as long as the there are no recurrent connections, we
+                -- won't access the target node's esValue, so the openness of the target
+                -- node doesn't affect the summation.
+                if esCounter > 0
+                  then (esValue, accEnv)
+                  else nodeValue sensorValues genome (nodes Map.! inNodeId) accEnv
+              Nothing ->
+                -- This indeed can happen: we may never encounter this node (the one in
+                -- the argument) before.
+                nodeValue sensorValues genome (nodes Map.! inNodeId) accEnv
+      in (accSum + weight * inNodeValue, newAccEnv)
+
+    updateEsValue nodeId' esValue env =
+      let es = env Map.! nodeId'
+          newEs = es{esValue=esValue}
+      in Map.insert nodeId' newEs env
 
 
 genomeValue :: Genome -> [Float] -> [Float]
