@@ -34,6 +34,7 @@ dependencies:
 - data-default
 - text
 - optparse-applicative
+- async
 
 library:
   source-dirs: src
