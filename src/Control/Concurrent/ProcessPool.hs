@@ -14,7 +14,6 @@ import qualified Control.Concurrent.Async as Async
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TSem
-import Control.Exception
 import Control.Monad
 
 import Data.UUID
@@ -53,10 +52,8 @@ startPool maxConcurrentJobs = do
     -- wait for the next job
     job <- atomically $ readTQueue jobQueue
     -- wait for an empty slot, and then spawn a new thread to execute the job
-    bracket_
-      (atomically $ waitTSem jobSlots)
-      (atomically $ signalTSem jobSlots)
-      (spawnJob jobResults job)
+    atomically $ waitTSem jobSlots
+    spawnJob jobSlots jobResults job
 
   let pool = Pool
         { managerThreadId = managerThreadId
@@ -67,10 +64,15 @@ startPool maxConcurrentJobs = do
   return pool
 
 
-spawnJob :: TVar (Map UUID (TMVar (Async a))) -> Job a -> IO ()
-spawnJob resultsVar Job{jobId, computation} = do
+spawnJob :: TSem -> TVar (Map UUID (TMVar (Async a))) -> Job a -> IO ()
+spawnJob jobSlots resultsVar Job{jobId, computation} = do
   putStrLn $ "starting job " ++ show jobId
-  result <- Async.async computation
+  let computation' = do
+        x <- computation
+        -- TODO @incomplete: catch the exception
+        atomically $ signalTSem jobSlots
+        return x
+  result <- Async.async computation'
   atomically $ do
     results <- readTVar resultsVar
     putTMVar (results ! jobId) result
