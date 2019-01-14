@@ -1,10 +1,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections #-}
 
 module Control.Concurrent.ProcessPool
   ( Pool
   , startPool
   , submitJob
   , waitJob
+  , printPoolStatus
   ) where
 
 import Control.Concurrent
@@ -100,3 +102,19 @@ waitJob Pool{jobResults=resultsVar} jobId = do
     results <- readTVar resultsVar
     readTMVar $ results ! jobId
   Async.wait res
+
+
+printPoolStatus :: Pool a -> IO ()
+printPoolStatus Pool{managerThreadId, jobResults} = do
+  let managerInfo = unwords ["Manager Thread ID:", show managerThreadId]
+  jobStatuses <- atomically $ do
+    results <- readTVar jobResults
+    isEmpties <- mapM (\(jobId, tmvar) -> fmap (jobId,) (isEmptyTMVar tmvar)) (Map.toList results)
+    return $ flip map isEmpties (\(jobId, isEmpty) ->
+      let scheduleStatus =
+            if isEmpty
+              then "Waiting to be dispatched"
+              else "Dispatched"
+      in unwords ["Job", show jobId ++ ":", scheduleStatus])
+  let info = unlines $ (managerInfo : jobStatuses)
+  putStr info
