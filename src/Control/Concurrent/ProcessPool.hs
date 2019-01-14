@@ -11,6 +11,7 @@ import Control.Concurrent
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TSem
 import Control.Exception
 import Control.Monad
 
@@ -26,7 +27,9 @@ import Data.Map.Strict (Map, (!))
 -- manage the jobs.
 data Pool a = Pool
   { managerThreadId :: ThreadId
-  , jobSlots :: QSem
+  -- TODO @incomplete: Put these three in a single TVar,
+  -- to facilitate atomic modification of the state.
+  , jobSlots :: TSem
   , jobQueue :: TQueue (Job a)
   , jobResults :: TVar (Map UUID (TMVar (Async a)))}
 
@@ -40,7 +43,7 @@ data Job a = Job
 -- up to the specified number of jobs.
 startPool :: Int -> IO (Pool a)
 startPool maxConcurrentJobs = do
-  jobSlots <- newQSem maxConcurrentJobs
+  jobSlots <- atomically $ newTSem maxConcurrentJobs
   jobQueue <- atomically newTQueue
   jobResults <- atomically $ newTVar Map.empty
 
@@ -48,7 +51,10 @@ startPool maxConcurrentJobs = do
     -- wait for the next job
     job <- atomically $ readTQueue jobQueue
     -- wait for an empty slot, and then spawn a new thread to execute the job
-    bracket_ (waitQSem jobSlots) (signalQSem jobSlots) (spawnJob jobResults job)
+    bracket_
+      (atomically $ waitTSem jobSlots)
+      (atomically $ signalTSem jobSlots)
+      (spawnJob jobResults job)
 
   let pool = Pool
         { managerThreadId = managerThreadId
@@ -61,6 +67,7 @@ startPool maxConcurrentJobs = do
 
 spawnJob :: TVar (Map UUID (TMVar (Async a))) -> Job a -> IO ()
 spawnJob resultsVar Job{jobId, computation} = do
+  putStrLn $ "starting job " ++ show jobId
   result <- Async.async computation
   atomically $ do
     results <- readTVar resultsVar
