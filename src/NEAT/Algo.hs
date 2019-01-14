@@ -25,6 +25,7 @@ import Control.Monad
 import Safe
 import qualified Database.Bolt as Bolt
 import Control.Exception
+import Control.Concurrent.ProcessPool
 
 import Data.AC7
 import NEAT.Data
@@ -617,21 +618,32 @@ simulate
     pipe <- Bolt.connect GraphDb.config
     runNodeId <- NEAT.Store.createRun pipe runId
 
+    pool <- startPool 10
+
     putStrLn "generating the initial generation"
     let initGen = Generation . Vector.singleton . Species $ initPopulation
 
     putStrLn "writing the initial generation"
-    NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
+    persistentJob0 <- submitJob pool $
+      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
 
-    foldM (\prevGen genSn -> do
+    (finalGen, persistentJobs) <- foldM (\(prevGen, accJobs) genSn -> do
       putStrLn $ "creating generation " ++ show genSn
       newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
 
-      putStrLn $ "writing generation " ++ show genSn
-      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn genSn) newGen
+      persistentJob <- submitJob pool $ do
+        pipe' <- Bolt.connect GraphDb.config
+        NEAT.Store.storeGeneration pipe' fitness runNodeId (GenerationSn genSn) newGen
 
-      return newGen
-      ) initGen [1 .. numGenerations]
+      return (newGen, persistentJob : accJobs)
+      ) (initGen, [persistentJob0]) [1 .. numGenerations]
+
+    putStrLn "simulation complete, waiting for the peristent processes to finish"
+    forM_ persistentJobs (\job -> do
+      putStrLn $ "waiting for the peristent job " ++ show job
+      waitJob pool job)
+
+    return finalGen
 
 
 isSensorNode :: Node -> Bool

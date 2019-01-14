@@ -66,7 +66,6 @@ startPool maxConcurrentJobs = do
 
 spawnJob :: TSem -> TVar (Map UUID (TMVar (Async a))) -> Job a -> IO ()
 spawnJob jobSlots resultsVar Job{jobId, computation} = do
-  putStrLn $ "starting job " ++ show jobId
   let computation' = do
         x <- computation
         -- TODO @incomplete: catch the exception
