@@ -4,3 +4,4 @@ NEAT.cabal
 try.hs
 visualization/*
 /**/.idea
+neo4j-data
