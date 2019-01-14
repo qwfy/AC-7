@@ -618,7 +618,7 @@ simulate
     pipe <- Bolt.connect GraphDb.config
     runNodeId <- NEAT.Store.createRun pipe runId
 
-    pool <- startPool 10
+    pool <- startPool 20
 
     putStrLn "generating the initial generation"
     let initGen = Generation . Vector.singleton . Species $ initPopulation
