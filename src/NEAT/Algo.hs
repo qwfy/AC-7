@@ -620,10 +620,9 @@ simulate
 
     pool <- startPool 20
 
-    putStrLn "generating the initial generation"
+    putStrLn "creating the initial generation"
     let initGen = Generation . Vector.singleton . Species $ initPopulation
 
-    putStrLn "writing the initial generation"
     persistentJob0 <- submitJob pool $
       NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
 
@@ -639,7 +638,7 @@ simulate
       ) (initGen, [persistentJob0]) [1 .. numGenerations]
 
     putStrLn "simulation complete, waiting for the peristent processes to finish"
-    forM_ persistentJobs (\job -> do
+    forM_ (reverse persistentJobs) (\job -> do
       putStrLn $ "waiting for the peristent job " ++ show job
       waitJob pool job)
 
