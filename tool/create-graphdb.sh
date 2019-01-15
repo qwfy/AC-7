@@ -2,9 +2,10 @@
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 PROJECT_ROOT="$SCRIPT_DIR/../"
+NEO4j_DATA_ROOT="$PROJECT_ROOT/neo4j-data/"
 
-# pull the image
-# docker pull neo4j:3.5.1-enterprise
+mkdir -p "$NEO4j_DATA_ROOT/data"
+mkdir -p "$NEO4j_DATA_ROOT/logs"
 
 docker run \
   --name ac7-neo4j \
@@ -13,6 +14,6 @@ docker run \
   --publish=7474:7474 \
   --publish=7687:7687 \
   --user=$(id -u):$(id -g) \
-  --volume="$PROJECT_ROOT/neo4j-data/data":/data \
-  --volume="$PROJECT_ROOT/neo4j-data/logs":/logs \
+  --volume="$NEO4j_DATA_ROOT/data":/data \
+  --volume="$NEO4j_DATA_ROOT/logs":/logs \
   neo4j:3.5.1-enterprise
