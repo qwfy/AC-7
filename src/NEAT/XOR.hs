@@ -36,5 +36,6 @@ fitness genome =
     sensorValues = [[0, 0], [0, 1], [1, 0], [1, 1]]
     truths       = [0,      1,      1,      0     ]
     -- each node should have at least one output, so the index by 0 is safe
+    -- TODO @incomplete: should we replace this with NonEmpty
     predicions = map (!! 0) $ map (\sv -> NEAT.Algo.genomeValue genome sv) sensorValues
     losses = map (\(a, b) -> abs (a - b)) $ zip truths predicions

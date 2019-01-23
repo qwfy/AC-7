@@ -637,9 +637,9 @@ simulate
       return (newGen, persistentJob : accJobs)
       ) (initGen, [persistentJob0]) [1 .. numGenerations]
 
-    putStrLn "simulation complete, waiting for the peristent processes to finish"
+    putStrLn "simulation complete, waiting for the peristent jobs to finish"
     forM_ (reverse persistentJobs) (\job -> do
-      putStrLn $ "waiting for the peristent job " ++ show job
+      putStrLn $ "waiting for job " ++ show job
       waitJob pool job)
 
     return finalGen
