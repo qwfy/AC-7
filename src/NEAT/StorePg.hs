@@ -7,6 +7,7 @@ module NEAT.StorePg
   , finishRun
   , storeGeneration
   , GenerationSn(..)
+  , clearDb
   )
   where
 
@@ -34,6 +35,16 @@ instance ToField NodeId where
 instance ToField RunId where
   toField (RunId x) = toField x
 
+
+clearDb :: IO ()
+clearDb = do
+  conn <- getConnection
+  let sqls = [ "truncate table edge cascade"
+             , "truncate table node cascade"
+             , "truncate table genome cascade"
+             , "truncate table generation cascade"
+             , "truncate table run cascade"]
+  mapM_ (execute_ conn) sqls
 
 getConnection :: IO Connection
 getConnection = connect $ ConnectInfo

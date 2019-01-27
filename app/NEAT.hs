@@ -17,17 +17,20 @@ import Options.Applicative
 import Data.Monoid ((<>))
 import qualified GraphDb
 import qualified Database.Bolt as Bolt
+-- TODO @incomplete: remove this
 import qualified NEAT.Store
+import qualified NEAT.StorePg
 
 import Util
 import Data.AC7
 
-data Option = Simulate | InitDb
+data Option = Simulate | InitDb | ClearDb
 
 optionParser :: Parser Option
 optionParser = subparser
   (  command "simulate" (info (pure Simulate) (fullDesc <> progDesc "Run a simulation"))
   <> command "init-db" (info (pure InitDb) (fullDesc <> progDesc "Initialize the database"))
+  <> command "clear-db" (info (pure ClearDb) (fullDesc <> progDesc "Clear the database"))
   )
 
 main :: IO ()
@@ -37,6 +40,7 @@ main = do
   case opt of
     InitDb -> initDb
     Simulate -> simulate
+    ClearDb -> NEAT.StorePg.clearDb
 
 
 initDb :: IO ()
