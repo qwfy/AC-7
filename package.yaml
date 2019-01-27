@@ -30,7 +30,6 @@ dependencies:
 - path-io
 - time
 - safe
-- hasbolt
 - data-default
 - text
 - optparse-applicative

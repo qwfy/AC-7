@@ -15,21 +15,16 @@ import qualified Log as Log
 import Control.Monad
 import Options.Applicative
 import Data.Monoid ((<>))
-import qualified GraphDb
-import qualified Database.Bolt as Bolt
--- TODO @incomplete: remove this
-import qualified NEAT.Store
 import qualified NEAT.StorePg
 
 import Util
 import Data.AC7
 
-data Option = Simulate | InitDb | ClearDb
+data Option = Simulate | ClearDb
 
 optionParser :: Parser Option
 optionParser = subparser
   (  command "simulate" (info (pure Simulate) (fullDesc <> progDesc "Run a simulation"))
-  <> command "init-db" (info (pure InitDb) (fullDesc <> progDesc "Initialize the database"))
   <> command "clear-db" (info (pure ClearDb) (fullDesc <> progDesc "Clear the database"))
   )
 
@@ -38,15 +33,8 @@ main = do
   let optionParser' = info (optionParser <**> helper) (fullDesc <> progDesc "AC-7")
   opt <- execParser optionParser'
   case opt of
-    InitDb -> initDb
     Simulate -> simulate
     ClearDb -> NEAT.StorePg.clearDb
-
-
-initDb :: IO ()
-initDb = do
-  pipe <- Bolt.connect GraphDb.config
-  NEAT.Store.createConstraint pipe
 
 
 simulate :: IO ()
