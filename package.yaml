@@ -35,6 +35,7 @@ dependencies:
 - text
 - optparse-applicative
 - async
+- postgresql-simple
 
 library:
   source-dirs: src

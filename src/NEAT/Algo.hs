@@ -23,14 +23,12 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM (STM, TVar)
 import Control.Monad
 import Safe
-import qualified Database.Bolt as Bolt
 import Control.Exception
 import Control.Concurrent.ProcessPool
 
 import Data.AC7
 import NEAT.Data
-import NEAT.Store
-import GraphDb
+import NEAT.StorePg
 import Util
 
 
@@ -615,24 +613,26 @@ simulate
   fitness compatibilityParams
   weightRange mutateParams ginVar
   numGenerations (Population initPopulation) = do
-    pipe <- Bolt.connect GraphDb.config
-    runNodeId <- NEAT.Store.createRun pipe runId
+    conn <- NEAT.StorePg.getConnection
+    NEAT.StorePg.createRun conn runId
 
     pool <- startPool 20
 
     putStrLn "creating the initial generation"
     let initGen = Generation . Vector.singleton . Species $ initPopulation
 
+    generationId <- Random.newGUID
     persistentJob0 <- submitJob pool $
-      NEAT.Store.storeGeneration pipe fitness runNodeId (GenerationSn 0) initGen
+      NEAT.StorePg.storeGeneration conn fitness generationId runId (GenerationSn 0) initGen
 
     (finalGen, persistentJobs) <- foldM (\(prevGen, accJobs) genSn -> do
       putStrLn $ "creating generation " ++ show genSn
       newGen <- evolve fitness compatibilityParams weightRange mutateParams ginVar prevGen
 
       persistentJob <- submitJob pool $ do
-        pipe' <- Bolt.connect GraphDb.config
-        NEAT.Store.storeGeneration pipe' fitness runNodeId (GenerationSn genSn) newGen
+        generationId' <- Random.newGUID
+        conn' <- NEAT.StorePg.getConnection
+        NEAT.StorePg.storeGeneration conn' fitness generationId' runId (GenerationSn genSn) newGen
 
       return (newGen, persistentJob : accJobs)
       ) (initGen, [persistentJob0]) [1 .. numGenerations]
@@ -642,6 +642,8 @@ simulate
       putStrLn $ "waiting for job " ++ show job
       waitJob pool job)
 
+    conn' <- NEAT.StorePg.getConnection
+    NEAT.StorePg.finishRun conn' runId
     return finalGen
 
 
