@@ -15,6 +15,7 @@ import Control.Concurrent.Async (Async)
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TSem
 import Control.Monad
+import Control.Exception
 
 import Data.UUID
 import qualified Data.UUID.V4 as UUID4
@@ -66,11 +67,8 @@ startPool maxConcurrentJobs = do
 
 spawnJob :: TSem -> TVar (Map UUID (TMVar (Async a))) -> Job a -> IO ()
 spawnJob jobSlots resultsVar Job{jobId, computation} = do
-  let computation' = do
-        x <- computation
-        -- TODO @incomplete: catch the exception
-        atomically $ signalTSem jobSlots
-        return x
+  let computation' =
+        finally computation (atomically $ signalTSem jobSlots)
   result <- Async.async computation'
   atomically $ do
     results <- readTVar resultsVar
