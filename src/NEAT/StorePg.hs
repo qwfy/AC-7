@@ -22,6 +22,8 @@ import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.ToField (ToField, toField)
 
 import Data.AC7
+import NEAT.Vis
+import Dot
 
 newtype GenerationSn = GenerationSn Int deriving (Show)
 newtype SpeciesSn = SpeciesSn Int deriving (Show)
@@ -90,16 +92,23 @@ storeGeneration conn fitness generationId runId (GenerationSn sn) (Generation ge
   1 <- execute conn sql (generationId, runId, sn)
 
   -- Generate the genome ids, whose sole purpose is to be the key in the database
-  -- m (Vector (Vector UUID))
-  genomeIds <- flip Vector.mapM generation (\(Species species) ->
-    -- m (Vector UUID)
-    flip Vector.mapM species (const Random.newGUID))
+  -- Also generate the visualization of the network
+  -- TODO @incomplete: the visualization may take too much time to generate and
+  -- too much storage to store, when the network becomes very large, this may be
+  -- impractical.
+  -- m (Vector (Vector (UUID, dot)))
+  genomeIdAndGraphs <- flip Vector.mapM generation (\(Species species) ->
+    -- m (Vector (UUID, dot))
+    flip Vector.mapM species (\genome -> do
+      genomeId <- Random.newGUID
+      graph <- Dot.toSvg $ NEAT.Vis.genomeToDot genome (fitness genome)
+      return (genomeId, graph)))
 
   -- Write the genome, along with the nodes and the edges
   let genomeSql = "\
         \insert into genome \
-        \(genome_id, generation_id, original_fitness, species_sn) \
-        \values (?, ?, ?, ?)"
+        \(genome_id, generation_id, original_fitness, species_sn, graph) \
+        \values (?, ?, ?, ?, ?)"
   let nodeSql = "\
         \insert into node \
         \(node_id, genome_id) \
@@ -111,13 +120,13 @@ storeGeneration conn fitness generationId runId (GenerationSn sn) (Generation ge
   let (genomeRows, nodeRows'', edgeRows'') = unzip3 . concat . Vector.toList $
         -- Generation is made of species
         -- Vector [(x, [y], [z])]
-        flip Vector.imap (Vector.zip genomeIds generation)
-          (\speciesSn (speciesGenomeIds, Species species) ->
+        flip Vector.imap (Vector.zip genomeIdAndGraphs generation)
+          (\speciesSn (speciesGenomeIdAndGraphs, Species species) ->
             -- Species is made of genomes
             -- [(x, [y], [z])]
-            Vector.toList $ flip Vector.map (Vector.zip speciesGenomeIds species)
-              (\(genomeId, genome@Genome{nodes, edges}) ->
-                let genomeRow = (genomeId, generationId, originalFitness genome, speciesSn)
+            Vector.toList $ flip Vector.map (Vector.zip speciesGenomeIdAndGraphs species)
+              (\((genomeId, genomeGraph), genome@Genome{nodes, edges}) ->
+                let genomeRow = (genomeId, generationId, originalFitness genome, speciesSn, genomeGraph)
                     nodeRows' = flip map (Map.keys nodes) (\nodeId -> (nodeId, genomeId))
                     edgeRows' = Vector.toList $ Vector.map edgeToRow edges
                 in (genomeRow, nodeRows', edgeRows')))

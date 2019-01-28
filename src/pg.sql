@@ -44,7 +44,8 @@ create table genome
     constraint genome_generation_generation_id_fk
       references generation (generation_id),
   original_fitness double precision not null,
-  species_sn       integer          not null
+  species_sn       integer          not null,
+  graph            text             not null
 );
 
 alter table genome
