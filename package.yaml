@@ -36,6 +36,12 @@ dependencies:
 - optparse-applicative
 - async
 - postgresql-simple
+- servant-server
+- servant-docs
+- wai
+- wai-extra
+- warp
+- http-types
 
 library:
   source-dirs: src
