@@ -147,7 +147,7 @@ viewRuns runs =
         [ th [] [text "run id"]
         , th [] [text "time started"]
         , th [] [text "time stopped"]
-        ]ns
+        ]
       viewRun run =
         tr []
           [ td [] [button [onClick (LoadRunInfo run.run_id)] [text run.run_id]]
