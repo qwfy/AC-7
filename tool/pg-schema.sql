@@ -1,4 +1,51 @@
 --
+-- PostgreSQL database cluster dump
+--
+
+SET default_transaction_read_only = off;
+
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+
+--
+-- Drop databases (except postgres and template1)
+--
+
+
+
+
+
+--
+-- Drop roles
+--
+
+DROP ROLE IF EXISTS "authenticator";
+DROP ROLE IF EXISTS "postgres";
+DROP ROLE IF EXISTS "web_anon";
+
+
+--
+-- Roles
+--
+
+CREATE ROLE "authenticator";
+ALTER ROLE "authenticator" WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB LOGIN NOREPLICATION NOBYPASSRLS PASSWORD 'md5474bd882be35ad430e7267f1e778b68f';
+CREATE ROLE "postgres";
+ALTER ROLE "postgres" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION BYPASSRLS PASSWORD 'md5c39183a5c79119d5a943c3b318f4eca9';
+CREATE ROLE "web_anon";
+ALTER ROLE "web_anon" WITH NOSUPERUSER INHERIT NOCREATEROLE NOCREATEDB NOLOGIN NOREPLICATION NOBYPASSRLS;
+
+
+--
+-- Role memberships
+--
+
+GRANT "web_anon" TO "authenticator" GRANTED BY "postgres";
+
+
+
+
+--
 -- PostgreSQL database dump
 --
 
@@ -15,41 +62,111 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
-ALTER TABLE IF EXISTS ONLY "public"."node" DROP CONSTRAINT IF EXISTS "node_genome_genome_id_fk";
-ALTER TABLE IF EXISTS ONLY "public"."genome" DROP CONSTRAINT IF EXISTS "genome_generation_generation_id_fk";
-ALTER TABLE IF EXISTS ONLY "public"."generation" DROP CONSTRAINT IF EXISTS "generation_run_run_id_fk";
-ALTER TABLE IF EXISTS ONLY "public"."edge" DROP CONSTRAINT IF EXISTS "edge_node_node_id_fk_2";
-ALTER TABLE IF EXISTS ONLY "public"."edge" DROP CONSTRAINT IF EXISTS "edge_node_node_id_fk";
-DROP INDEX IF EXISTS "public"."run_run_id_uindex";
-DROP INDEX IF EXISTS "public"."generation_run_id_sn_uindex";
-DROP INDEX IF EXISTS "public"."generation_generation_id_uindex";
-ALTER TABLE IF EXISTS ONLY "public"."run" DROP CONSTRAINT IF EXISTS "run_pk";
-ALTER TABLE IF EXISTS ONLY "public"."node" DROP CONSTRAINT IF EXISTS "node_pk";
-ALTER TABLE IF EXISTS ONLY "public"."genome" DROP CONSTRAINT IF EXISTS "genome_pk";
-DROP VIEW IF EXISTS "public"."species_of_generation";
-DROP VIEW IF EXISTS "public"."run_info";
-DROP TABLE IF EXISTS "public"."node";
-DROP VIEW IF EXISTS "public"."generation_of_species";
-DROP VIEW IF EXISTS "public"."population";
-DROP TABLE IF EXISTS "public"."run";
-DROP TABLE IF EXISTS "public"."genome";
-DROP TABLE IF EXISTS "public"."generation";
-DROP TABLE IF EXISTS "public"."edge";
-DROP SCHEMA IF EXISTS "public";
+UPDATE pg_catalog.pg_database SET datistemplate = false WHERE datname = 'template1';
+DROP DATABASE "template1";
 --
--- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: template1; Type: DATABASE; Schema: -; Owner: postgres
 --
 
-CREATE SCHEMA "public";
+CREATE DATABASE "template1" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8';
 
 
-ALTER SCHEMA "public" OWNER TO "postgres";
+ALTER DATABASE "template1" OWNER TO "postgres";
+
+\connect "template1"
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
 
 --
--- Name: SCHEMA "public"; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: DATABASE "template1"; Type: COMMENT; Schema: -; Owner: postgres
 --
 
-COMMENT ON SCHEMA "public" IS 'standard public schema';
+COMMENT ON DATABASE "template1" IS 'default template for new databases';
+
+
+--
+-- Name: template1; Type: DATABASE PROPERTIES; Schema: -; Owner: postgres
+--
+
+ALTER DATABASE "template1" IS_TEMPLATE = true;
+
+
+\connect "template1"
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE "template1"; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE CONNECT,TEMPORARY ON DATABASE "template1" FROM PUBLIC;
+GRANT CONNECT ON DATABASE "template1" TO PUBLIC;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 11.1 (Debian 11.1-1.pgdg90+1)
+-- Dumped by pg_dump version 11.1
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+DROP DATABASE "postgres";
+--
+-- Name: postgres; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE "postgres" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8';
+
+
+ALTER DATABASE "postgres" OWNER TO "postgres";
+
+\connect "postgres"
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE "postgres"; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON DATABASE "postgres" IS 'default administrative connection database';
 
 
 SET default_tablespace = '';
@@ -361,5 +478,9 @@ GRANT SELECT ON TABLE "public"."species_of_generation" TO "web_anon";
 
 --
 -- PostgreSQL database dump complete
+--
+
+--
+-- PostgreSQL database cluster dump complete
 --
 

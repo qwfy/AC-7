@@ -3,15 +3,13 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 PROJECT_ROOT="$SCRIPT_DIR/../"
 
-PGPASSWORD=atreehasmanyleafs pg_dump \
-  --file="$PROJECT_ROOT/tool/schema.sql" \
-  --format=p \
+PGPASSWORD=atreehasmanyleafs pg_dumpall \
+  --file="$PROJECT_ROOT/tool/pg-schema.sql" \
   --clean \
-  --if-exists \
-  --schema=public \
   --schema-only \
+  --if-exists \
   --quote-all-identifiers \
-  --dbname=postgres \
   --host=127.0.0.1 \
   --port=5432 \
-  --username=postgres
+  --dbname='dbname=postgres' \
+  --username=postgres 
