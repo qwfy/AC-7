@@ -147,16 +147,16 @@ viewRuns runs =
         [ th [] [text "run id"]
         , th [] [text "time started"]
         , th [] [text "time stopped"]
-        ]
+        ]ns
       viewRun run =
         tr []
-          [ td [onClick (LoadRunInfo run.run_id)] [text run.run_id]
+          [ td [] [button [onClick (LoadRunInfo run.run_id)] [text run.run_id]]
           , td [] [text run.time_started]
           , td [] [text run.time_stopped]
           ]
   in if List.isEmpty runs
        then table [] []
-       else table [] [headers, tbody [] (List.map viewRun runs)]
+       else table [Attributes.id "run-table"] [headers, tbody [] (List.map viewRun runs)]
 
 viewError : Error -> Html Msg
 viewError error =
@@ -186,15 +186,16 @@ viewQuery query1 =
             case query.timeline of
               ByGeneration ->
                 [viewGenerationIds query.generationIds, viewSpeciesIds query.speciesIds]
-      in div []
-           ([ viewTimeline query.timeline
-            , div [] [text query.runId]
+      in div [Attributes.id "query-container"]
+           ([ div [] [text <| "displaying run id: " ++ query.runId]
+            , viewTimeline query.timeline
             ] ++ speciesAndGenerations)
 
 viewSpeciesIds : List SpeciesId -> Html Msg
 viewSpeciesIds speciesIds =
   let allButton = button [] [text "all"]
-  in div [] (allButton :: List.map viewSpeciesId speciesIds)
+      hint = div [] [text "species SNs"]
+  in div [Attributes.id "species-sn-container"] (hint :: allButton :: List.map viewSpeciesId speciesIds)
 
 viewSpeciesId : SpeciesId -> Html Msg
 viewSpeciesId speciesId =
@@ -203,7 +204,8 @@ viewSpeciesId speciesId =
 viewGenerationIds : List GenerationId -> Html Msg
 viewGenerationIds generationIds =
   let allButton = button [] [text "all"]
-  in div [] (allButton :: List.map viewGenerationId generationIds)
+      hint = div [] [text "generation SNs"]
+  in div [Attributes.id "generation-sn-container"] (hint :: allButton :: List.map viewGenerationId generationIds)
 
 viewGenerationId : GenerationId -> Html Msg
 viewGenerationId generationId =

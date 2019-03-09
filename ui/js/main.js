@@ -6153,7 +6153,23 @@ var author$project$Main$viewGenerationId = function (generationId) {
 			]));
 };
 var elm$html$Html$div = _VirtualDom_node('div');
+var elm$json$Json$Encode$string = _Json_wrap;
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var author$project$Main$viewGenerationIds = function (generationIds) {
+	var hint = A2(
+		elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text('generation SNs')
+			]));
 	var allButton = A2(
 		elm$html$Html$button,
 		_List_Nil,
@@ -6163,11 +6179,17 @@ var author$project$Main$viewGenerationIds = function (generationIds) {
 			]));
 	return A2(
 		elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$id('generation-sn-container')
+			]),
 		A2(
 			elm$core$List$cons,
-			allButton,
-			A2(elm$core$List$map, author$project$Main$viewGenerationId, generationIds)));
+			hint,
+			A2(
+				elm$core$List$cons,
+				allButton,
+				A2(elm$core$List$map, author$project$Main$viewGenerationId, generationIds))));
 };
 var author$project$Main$viewSpeciesId = function (speciesId) {
 	return A2(
@@ -6180,6 +6202,13 @@ var author$project$Main$viewSpeciesId = function (speciesId) {
 			]));
 };
 var author$project$Main$viewSpeciesIds = function (speciesIds) {
+	var hint = A2(
+		elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text('species SNs')
+			]));
 	var allButton = A2(
 		elm$html$Html$button,
 		_List_Nil,
@@ -6189,11 +6218,17 @@ var author$project$Main$viewSpeciesIds = function (speciesIds) {
 			]));
 	return A2(
 		elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$id('species-sn-container')
+			]),
 		A2(
 			elm$core$List$cons,
-			allButton,
-			A2(elm$core$List$map, author$project$Main$viewSpeciesId, speciesIds)));
+			hint,
+			A2(
+				elm$core$List$cons,
+				allButton,
+				A2(elm$core$List$map, author$project$Main$viewSpeciesId, speciesIds))));
 };
 var author$project$Main$ChangeTimeline = function (a) {
 	return {$: 'ChangeTimeline', a: a};
@@ -6232,18 +6267,21 @@ var author$project$Main$viewQuery = function (query1) {
 		}();
 		return A2(
 			elm$html$Html$div,
-			_List_Nil,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$id('query-container')
+				]),
 			_Utils_ap(
 				_List_fromArray(
 					[
-						author$project$Main$viewTimeline(query.timeline),
 						A2(
 						elm$html$Html$div,
 						_List_Nil,
 						_List_fromArray(
 							[
-								elm$html$Html$text(query.runId)
-							]))
+								elm$html$Html$text('displaying run id: ' + query.runId)
+							])),
+						author$project$Main$viewTimeline(query.timeline)
 					]),
 				speciesAndGenerations));
 	}
@@ -6273,14 +6311,20 @@ var author$project$Main$viewRuns = function (runs) {
 				[
 					A2(
 					elm$html$Html$td,
+					_List_Nil,
 					_List_fromArray(
 						[
-							elm$html$Html$Events$onClick(
-							author$project$Main$LoadRunInfo(run.run_id))
-						]),
-					_List_fromArray(
-						[
-							elm$html$Html$text(run.run_id)
+							A2(
+							elm$html$Html$button,
+							_List_fromArray(
+								[
+									elm$html$Html$Events$onClick(
+									author$project$Main$LoadRunInfo(run.run_id))
+								]),
+							_List_fromArray(
+								[
+									elm$html$Html$text(run.run_id)
+								]))
 						])),
 					A2(
 					elm$html$Html$td,
@@ -6327,7 +6371,10 @@ var author$project$Main$viewRuns = function (runs) {
 			]));
 	return elm$core$List$isEmpty(runs) ? A2(elm$html$Html$table, _List_Nil, _List_Nil) : A2(
 		elm$html$Html$table,
-		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$id('run-table')
+			]),
 		_List_fromArray(
 			[
 				headers,
@@ -6349,14 +6396,6 @@ var author$project$Main$viewControl = function (model) {
 			]));
 };
 var author$project$Main$RemoveError = {$: 'RemoveError'};
-var elm$json$Json$Encode$string = _Json_wrap;
-var elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$string(string));
-	});
 var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var author$project$Main$viewError = function (error) {
 	if (error.$ === 'NoError') {
