@@ -223,6 +223,18 @@ CREATE TABLE "public"."genome" (
 ALTER TABLE "public"."genome" OWNER TO "postgres";
 
 --
+-- Name: node; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE "public"."node" (
+    "node_id" "uuid" NOT NULL,
+    "genome_id" "uuid"
+);
+
+
+ALTER TABLE "public"."node" OWNER TO "postgres";
+
+--
 -- Name: run; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -247,42 +259,18 @@ COMMENT ON TABLE "public"."run" IS 'Each row in this table represents a run';
 --
 
 CREATE VIEW "public"."population" AS
- SELECT "genome"."genome_id",
-    "genome"."species_sn",
+ SELECT "run"."run_id",
     "generation"."sn" AS "generation_sn",
-    "run"."run_id"
+    "genome"."species_sn",
+    "genome"."genome_id",
+    "genome"."original_fitness",
+    "genome"."graph"
    FROM (("public"."genome"
      LEFT JOIN "public"."generation" ON (("genome"."generation_id" = "generation"."generation_id")))
      LEFT JOIN "public"."run" ON (("generation"."run_id" = "run"."run_id")));
 
 
 ALTER TABLE "public"."population" OWNER TO "postgres";
-
---
--- Name: generation_of_species; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW "public"."generation_of_species" AS
- SELECT "population"."run_id",
-    "population"."species_sn",
-    "array_agg"(DISTINCT "population"."generation_sn") AS "all_generations"
-   FROM "public"."population"
-  GROUP BY "population"."run_id", "population"."species_sn";
-
-
-ALTER TABLE "public"."generation_of_species" OWNER TO "postgres";
-
---
--- Name: node; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE "public"."node" (
-    "node_id" "uuid" NOT NULL,
-    "genome_id" "uuid"
-);
-
-
-ALTER TABLE "public"."node" OWNER TO "postgres";
 
 --
 -- Name: run_info; Type: VIEW; Schema: public; Owner: postgres
@@ -306,20 +294,6 @@ CREATE VIEW "public"."run_info" AS
 
 
 ALTER TABLE "public"."run_info" OWNER TO "postgres";
-
---
--- Name: species_of_generation; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW "public"."species_of_generation" AS
- SELECT "population"."run_id",
-    "population"."generation_sn",
-    "array_agg"(DISTINCT "population"."species_sn") AS "all_species"
-   FROM "public"."population"
-  GROUP BY "population"."run_id", "population"."generation_sn";
-
-
-ALTER TABLE "public"."species_of_generation" OWNER TO "postgres";
 
 --
 -- Name: genome genome_pk; Type: CONSTRAINT; Schema: public; Owner: postgres
@@ -435,6 +409,13 @@ GRANT SELECT ON TABLE "public"."genome" TO "web_anon";
 
 
 --
+-- Name: TABLE "node"; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE "public"."node" TO "web_anon";
+
+
+--
 -- Name: TABLE "run"; Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -449,31 +430,10 @@ GRANT SELECT ON TABLE "public"."population" TO "web_anon";
 
 
 --
--- Name: TABLE "generation_of_species"; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE "public"."generation_of_species" TO "web_anon";
-
-
---
--- Name: TABLE "node"; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE "public"."node" TO "web_anon";
-
-
---
 -- Name: TABLE "run_info"; Type: ACL; Schema: public; Owner: postgres
 --
 
 GRANT SELECT ON TABLE "public"."run_info" TO "web_anon";
-
-
---
--- Name: TABLE "species_of_generation"; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE "public"."species_of_generation" TO "web_anon";
 
 
 --
