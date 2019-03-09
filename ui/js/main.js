@@ -4583,7 +4583,7 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var author$project$Main$initModel = {generation: elm$core$Maybe$Nothing, messages: _List_Nil, run: elm$core$Maybe$Nothing, species: elm$core$Maybe$Nothing};
+var author$project$Main$initModel = {messages: _List_Nil, query: elm$core$Maybe$Nothing, runs: _List_Nil};
 var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
@@ -4983,11 +4983,15 @@ var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$init = function (flags_) {
 	return _Utils_Tuple2(author$project$Main$initModel, elm$core$Platform$Cmd$none);
 };
+var author$project$Main$ByGeneration = {$: 'ByGeneration'};
 var author$project$Main$FinishProgress = function (a) {
 	return {$: 'FinishProgress', a: a};
 };
 var author$project$Main$LoadedAllRuns = function (a) {
 	return {$: 'LoadedAllRuns', a: a};
+};
+var author$project$Main$LoadedRunInfo = function (a) {
+	return {$: 'LoadedRunInfo', a: a};
 };
 var author$project$Main$Progress = function (a) {
 	return {$: 'Progress', a: a};
@@ -5102,13 +5106,13 @@ var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
 			A2(elm$json$Json$Decode$field, key, valDecoder),
 			decoder);
 	});
-var author$project$Wire$Run$Run = F3(
+var author$project$Wire$Run$T = F3(
 	function (run_id, time_started, time_stopped) {
 		return {run_id: run_id, time_started: time_started, time_stopped: time_stopped};
 	});
 var elm$json$Json$Decode$string = _Json_decodeString;
 var elm$json$Json$Decode$succeed = _Json_succeed;
-var author$project$Wire$Run$decodeRun = A3(
+var author$project$Wire$Run$decodeT = A3(
 	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 	'time_stopped',
 	elm$json$Json$Decode$string,
@@ -5120,26 +5124,26 @@ var author$project$Wire$Run$decodeRun = A3(
 			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 			'run_id',
 			elm$json$Json$Decode$string,
-			elm$json$Json$Decode$succeed(author$project$Wire$Run$Run))));
-var elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return elm$core$Result$Err(
-				f(e));
-		}
+			elm$json$Json$Decode$succeed(author$project$Wire$Run$T))));
+var author$project$Wire$RunInfo$T = F3(
+	function (run_id, species_sns, generation_sns) {
+		return {generation_sns: generation_sns, run_id: run_id, species_sns: species_sns};
 	});
-var elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
-var elm$core$Basics$identity = function (x) {
-	return x;
-};
+var elm$json$Json$Decode$int = _Json_decodeInt;
+var elm$json$Json$Decode$list = _Json_decodeList;
+var author$project$Wire$RunInfo$decodeT = A3(
+	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+	'generation_sns',
+	elm$json$Json$Decode$list(elm$json$Json$Decode$int),
+	A3(
+		NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+		'species_sns',
+		elm$json$Json$Decode$list(elm$json$Json$Decode$int),
+		A3(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+			'run_id',
+			elm$json$Json$Decode$string,
+			elm$json$Json$Decode$succeed(author$project$Wire$RunInfo$T))));
 var elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var elm$core$Dict$empty = elm$core$Dict$RBEmpty_elm_builtin;
 var elm$core$Basics$compare = _Utils_compare;
@@ -5694,6 +5698,26 @@ var elm$http$Http$Sending = function (a) {
 	return {$: 'Sending', a: a};
 };
 var elm$http$Http$Timeout_ = {$: 'Timeout_'};
+var elm$http$Http$emptyBody = _Http_emptyBody;
+var elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return elm$core$Result$Err(
+				f(e));
+		}
+	});
+var elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var elm$core$Basics$identity = function (x) {
+	return x;
+};
 var elm$http$Http$expectStringResponse = F2(
 	function (toMsg, toResult) {
 		return A3(
@@ -5750,7 +5774,6 @@ var elm$http$Http$expectJson = F2(
 						A2(elm$json$Json$Decode$decodeString, decoder, string));
 				}));
 	});
-var elm$http$Http$emptyBody = _Http_emptyBody;
 var elm$http$Http$Request = function (a) {
 	return {$: 'Request', a: a};
 };
@@ -5947,7 +5970,11 @@ var elm$http$Http$get = function (r) {
 	return elm$http$Http$request(
 		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
-var elm$json$Json$Decode$list = _Json_decodeList;
+var elm$http$Http$Header = F2(
+	function (a, b) {
+		return {$: 'Header', a: a, b: b};
+	});
+var elm$http$Http$header = elm$http$Http$Header;
 var elm$url$Url$percentEncode = _Url_percentEncode;
 var elm$url$Url$Builder$QueryParameter = F2(
 	function (a, b) {
@@ -5962,43 +5989,117 @@ var elm$url$Url$Builder$string = F2(
 	});
 var author$project$Main$update = F2(
 	function (msg, model) {
-		if (msg.$ === 'LoadAllRuns') {
-			var newModel = A2(
-				author$project$Main$withMessage,
-				author$project$Main$Progress('loading all runs'),
-				model);
-			var cmd = elm$http$Http$get(
-				{
-					expect: A2(
-						elm$http$Http$expectJson,
-						author$project$Main$LoadedAllRuns,
-						elm$json$Json$Decode$list(author$project$Wire$Run$decodeRun)),
-					url: A2(
-						author$project$Main$makeUrl,
-						_List_fromArray(
-							['run']),
-						_List_fromArray(
+		switch (msg.$) {
+			case 'LoadAllRuns':
+				var newModel = A2(
+					author$project$Main$withMessage,
+					author$project$Main$Progress('loading all runs'),
+					model);
+				var cmd = elm$http$Http$get(
+					{
+						expect: A2(
+							elm$http$Http$expectJson,
+							author$project$Main$LoadedAllRuns,
+							elm$json$Json$Decode$list(author$project$Wire$Run$decodeT)),
+						url: A2(
+							author$project$Main$makeUrl,
+							_List_fromArray(
+								['run_info']),
+							_List_fromArray(
+								[
+									A2(elm$url$Url$Builder$string, 'order', 'time_stopped.desc,time_started.desc')
+								]))
+					});
+				return _Utils_Tuple2(newModel, cmd);
+			case 'LoadedAllRuns':
+				var runsRes = msg.a;
+				if (runsRes.$ === 'Err') {
+					var newModel = A2(
+						author$project$Main$withMessage,
+						author$project$Main$Progress('network error'),
+						model);
+					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				} else {
+					var runs = runsRes.a;
+					var newModel = A2(
+						author$project$Main$withMessage,
+						author$project$Main$FinishProgress('loaded all runs'),
+						_Utils_update(
+							model,
+							{runs: runs}));
+					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				}
+			case 'LoadRunInfo':
+				var runId = msg.a;
+				var cmd = elm$http$Http$request(
+					{
+						body: elm$http$Http$emptyBody,
+						expect: A2(elm$http$Http$expectJson, author$project$Main$LoadedRunInfo, author$project$Wire$RunInfo$decodeT),
+						headers: _List_fromArray(
 							[
-								A2(elm$url$Url$Builder$string, 'order', 'time_stopped.desc,time_started.desc')
-							]))
-				});
-			return _Utils_Tuple2(newModel, cmd);
-		} else {
-			var runsRes = msg.a;
-			if (runsRes.$ === 'Err') {
-				var newModel = A2(
-					author$project$Main$withMessage,
-					author$project$Main$Progress('network error'),
-					model);
-				return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
-			} else {
-				var runs = runsRes.a;
-				var newModel = A2(
-					author$project$Main$withMessage,
-					author$project$Main$FinishProgress('loaded all runs'),
-					model);
-				return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
-			}
+								A2(elm$http$Http$header, 'Accept', 'application/vnd.pgrst.object+json')
+							]),
+						method: 'GET',
+						timeout: elm$core$Maybe$Nothing,
+						tracker: elm$core$Maybe$Nothing,
+						url: A2(
+							author$project$Main$makeUrl,
+							_List_fromArray(
+								['run_info']),
+							_List_fromArray(
+								[
+									A2(elm$url$Url$Builder$string, 'run_id', 'eq.' + runId)
+								]))
+					});
+				return _Utils_Tuple2(model, cmd);
+			case 'LoadedRunInfo':
+				var runInfoRes = msg.a;
+				if (runInfoRes.$ === 'Err') {
+					var newModel = A2(
+						author$project$Main$withMessage,
+						author$project$Main$Progress('network error'),
+						model);
+					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				} else {
+					var runInfo = runInfoRes.a;
+					var newQuery = {
+						generationIds: runInfo.generation_sns,
+						runId: runInfo.run_id,
+						speciesIds: runInfo.species_sns,
+						timeline: function () {
+							var _n3 = model.query;
+							if (_n3.$ === 'Nothing') {
+								return author$project$Main$ByGeneration;
+							} else {
+								var q = _n3.a;
+								return q.timeline;
+							}
+						}()
+					};
+					var newModel = _Utils_update(
+						model,
+						{
+							query: elm$core$Maybe$Just(newQuery)
+						});
+					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				}
+			default:
+				var timeline = msg.a;
+				var _n4 = model.query;
+				if (_n4.$ === 'Nothing') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var query = _n4.a;
+					var newModel = _Utils_update(
+						model,
+						{
+							query: elm$core$Maybe$Just(
+								_Utils_update(
+									query,
+									{timeline: timeline}))
+						});
+					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				}
 		}
 	});
 var author$project$Main$LoadAllRuns = {$: 'LoadAllRuns'};
@@ -6045,13 +6146,195 @@ var author$project$Main$viewLoadRuns = A2(
 		[
 			elm$html$Html$text('load all runs')
 		]));
+var author$project$Main$viewGenerationId = function (generationId) {
+	return A2(
+		elm$html$Html$button,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text(
+				elm$core$String$fromInt(generationId))
+			]));
+};
 var elm$html$Html$div = _VirtualDom_node('div');
+var author$project$Main$viewGenerationIds = function (generationIds) {
+	var allButton = A2(
+		elm$html$Html$button,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text('all')
+			]));
+	return A2(
+		elm$html$Html$div,
+		_List_Nil,
+		A2(
+			elm$core$List$cons,
+			allButton,
+			A2(elm$core$List$map, author$project$Main$viewGenerationId, generationIds)));
+};
+var author$project$Main$viewSpeciesId = function (speciesId) {
+	return A2(
+		elm$html$Html$button,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text(
+				elm$core$String$fromInt(speciesId))
+			]));
+};
+var author$project$Main$viewSpeciesIds = function (speciesIds) {
+	var allButton = A2(
+		elm$html$Html$button,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text('all')
+			]));
+	return A2(
+		elm$html$Html$div,
+		_List_Nil,
+		A2(
+			elm$core$List$cons,
+			allButton,
+			A2(elm$core$List$map, author$project$Main$viewSpeciesId, speciesIds)));
+};
+var author$project$Main$ChangeTimeline = function (a) {
+	return {$: 'ChangeTimeline', a: a};
+};
+var author$project$Main$viewTimeline = function (timeline) {
+	return A2(
+		elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$button,
+				_List_fromArray(
+					[
+						elm$html$Html$Events$onClick(
+						author$project$Main$ChangeTimeline(author$project$Main$ByGeneration))
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('by generation')
+					]))
+			]));
+};
+var author$project$Main$viewQuery = function (query1) {
+	if (query1.$ === 'Nothing') {
+		return A2(elm$html$Html$div, _List_Nil, _List_Nil);
+	} else {
+		var query = query1.a;
+		var speciesAndGenerations = function () {
+			var _n1 = query.timeline;
+			return _List_fromArray(
+				[
+					author$project$Main$viewGenerationIds(query.generationIds),
+					author$project$Main$viewSpeciesIds(query.speciesIds)
+				]);
+		}();
+		return A2(
+			elm$html$Html$div,
+			_List_Nil,
+			_Utils_ap(
+				_List_fromArray(
+					[
+						author$project$Main$viewTimeline(query.timeline),
+						A2(
+						elm$html$Html$div,
+						_List_Nil,
+						_List_fromArray(
+							[
+								elm$html$Html$text(query.runId)
+							]))
+					]),
+				speciesAndGenerations));
+	}
+};
+var author$project$Main$LoadRunInfo = function (a) {
+	return {$: 'LoadRunInfo', a: a};
+};
+var elm$html$Html$table = _VirtualDom_node('table');
+var elm$html$Html$td = _VirtualDom_node('td');
+var elm$html$Html$th = _VirtualDom_node('th');
+var elm$html$Html$tr = _VirtualDom_node('tr');
+var author$project$Main$viewRuns = function (runs) {
+	var viewRun = function (run) {
+		return A2(
+			elm$html$Html$tr,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$td,
+					_List_fromArray(
+						[
+							elm$html$Html$Events$onClick(
+							author$project$Main$LoadRunInfo(run.run_id))
+						]),
+					_List_fromArray(
+						[
+							elm$html$Html$text(run.run_id)
+						])),
+					A2(
+					elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text(run.time_started)
+						])),
+					A2(
+					elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text(run.time_stopped)
+						]))
+				]));
+	};
+	var headers = A2(
+		elm$html$Html$th,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$td,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text('run id')
+					])),
+				A2(
+				elm$html$Html$td,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text('time started')
+					])),
+				A2(
+				elm$html$Html$td,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text('time stopped')
+					]))
+			]));
+	return A2(
+		elm$html$Html$table,
+		_List_Nil,
+		A2(elm$core$List$map, viewRun, runs));
+};
 var author$project$Main$viewControl = function (model) {
 	return A2(
 		elm$html$Html$div,
 		_List_Nil,
 		_List_fromArray(
-			[author$project$Main$viewLoadRuns]));
+			[
+				author$project$Main$viewLoadRuns,
+				author$project$Main$viewRuns(model.runs),
+				author$project$Main$viewQuery(model.query)
+			]));
 };
 var author$project$Main$viewMessage = function (message) {
 	if (message.$ === 'Progress') {
