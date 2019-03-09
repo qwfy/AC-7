@@ -37,6 +37,10 @@ instance ToField NodeId where
 instance ToField RunId where
   toField (RunId x) = toField x
 
+instance ToField EnableStatus where
+  toField Enabled = toField True
+  toField Disabled = toField False
+
 
 clearDb :: IO ()
 clearDb = do
@@ -77,10 +81,6 @@ finishRun conn runId = do
         \where run_id = ?"
   1 <- execute conn sql (current8601, runId)
   return ()
-
-instance ToField EnableStatus where
-  toField Enabled = toField True
-  toField Disabled = toField False
 
 storeGeneration :: Connection -> (Genome -> OriginalFitness) -> UUID -> RunId -> GenerationSn -> Generation -> IO ()
 storeGeneration conn fitness generationId runId (GenerationSn sn) (Generation generation) = do

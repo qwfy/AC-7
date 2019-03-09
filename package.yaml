@@ -36,13 +36,6 @@ dependencies:
 - optparse-applicative
 - async
 - postgresql-simple
-- servant-server
-- servant-docs
-- wai
-- wai-extra
-- warp
-- http-types
-- aeson
 
 library:
   source-dirs: src

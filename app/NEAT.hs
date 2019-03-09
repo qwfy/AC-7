@@ -19,15 +19,13 @@ import qualified NEAT.StorePg
 
 import Util
 import Data.AC7
-import qualified Server
 
-data Option = Simulate | ClearDb | Serve
+data Option = Simulate | ClearDb
 
 optionParser :: Parser Option
 optionParser = subparser
   (  command "simulate" (info (pure Simulate) (fullDesc <> progDesc "Run a simulation"))
   <> command "clear-db" (info (pure ClearDb) (fullDesc <> progDesc "Clear the database"))
-  <> command "serve" (info (pure Serve) (fullDesc <> progDesc "Run the HTTP server"))
   )
 
 main :: IO ()
@@ -37,7 +35,6 @@ main = do
   case opt of
     Simulate -> simulate
     ClearDb -> NEAT.StorePg.clearDb
-    Serve -> Server.start
 
 
 simulate :: IO ()
