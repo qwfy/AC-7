@@ -1,7 +1,8 @@
-.stack-work/
-NEAT.cabal
 *~
-try.hs
-visualization/*
 /**/.idea
-pg-data/**
+/.stack-work/
+NEAT.cabal
+/try.hs
+/visualization/
+/pg-data/
+/ui/elm-stuff
