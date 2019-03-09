@@ -25,7 +25,7 @@ init : String -> (Model, Cmd Msg)
 init flags_ = (initModel, Cmd.none)
 
 type alias Model =
-  { messages: List Message
+  { error : Error
   , runs : List Wire.Run.T
   , query : Maybe Query
   }
@@ -44,10 +44,12 @@ type alias GenerationId = Int
 
 initModel : Model
 initModel =
-  { messages = []
+  { error = NoError
   , runs = []
   , query = Nothing
   }
+
+type Error = NoError | HttpError Http.Error
 
 type Msg
   = LoadAllRuns
@@ -55,10 +57,7 @@ type Msg
   | ChangeTimeline Timeline
   | LoadRunInfo RunId
   | LoadedRunInfo (Result Http.Error Wire.RunInfo.T)
-
-type Message
-  = Progress String
-  | FinishProgress String
+  | RemoveError
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -68,31 +67,25 @@ makeUrl paths params =
   Url.Builder.crossOrigin
     "http://127.0.0.1:3000" paths params
 
-withMessage : Message -> Model -> Model
-withMessage msg model =
-  {model | messages = msg :: model.messages}
-
 -- Note: Consider clear the error on every message.
 -- TODO @incomplete: find another place to put the error?
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+    RemoveError ->
+      ({model|error=NoError}, Cmd.none)
     LoadAllRuns ->
       let cmd = Http.get
             { url = makeUrl ["run_info"] [Url.Builder.string "order" "time_stopped.desc,time_started.desc"]
             , expect = Http.expectJson LoadedAllRuns (Decode.list Wire.Run.decodeT)
             }
-          newModel = withMessage (Progress "loading all runs") model
-      in (newModel, cmd)
+      in (model, cmd)
     LoadedAllRuns runsRes ->
       case runsRes of
-        Err _ ->
-          let newModel = withMessage (Progress "network error") model
-          in (newModel, Cmd.none)
+        Err err ->
+          ({model|error=HttpError err}, Cmd.none)
         Ok runs ->
-          let newModel = withMessage (FinishProgress "loaded all runs")
-                           {model|runs=runs}
-          in (newModel, Cmd.none)
+          ({model|runs=runs}, Cmd.none)
     LoadRunInfo runId ->
       let cmd = Http.request
             { method = "GET"
@@ -107,9 +100,8 @@ update msg model =
       in (model, cmd)
     LoadedRunInfo runInfoRes ->
       case runInfoRes of
-        Err _ ->
-          let newModel = withMessage (Progress "network error") model
-          in (newModel, Cmd.none)
+        Err err ->
+          ({model|error=HttpError err}, Cmd.none)
         Ok runInfo ->
           let newQuery =
                 { timeline = case model.query of
@@ -132,7 +124,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div []
-    [ viewMessages model.messages
+    [ viewError model.error
     , viewControl model
     ]
 
@@ -164,18 +156,24 @@ viewRuns runs =
           ]
   in table [] (List.map viewRun runs)
 
-
-viewMessages : List Message -> Html Msg
-viewMessages messages =
-  div [] (List.map viewMessage messages)
-
-viewMessage : Message -> Html Msg
-viewMessage message =
-  case message of
-    Progress msg ->
-      div [] [text msg]
-    FinishProgress msg ->
-      div [] [text msg]
+viewError : Error -> Html Msg
+viewError error =
+  case error of
+    NoError -> div [] []
+    HttpError err ->
+      let hint = case err of
+            Http.BadUrl url ->
+              "BadUrl: you did not provide a valid URL. " ++ url
+            Http.Timeout ->
+              "Timeout: it took too long to get a response"
+            Http.NetworkError->
+              "NetworkError: cannot connect to the remote host"
+            Http.BadStatus code ->
+              "BadStatus (" ++ String.fromInt code ++ "): the status code indicates failure"
+            Http.BadBody detail ->
+              "BadBody: the body of the response was something unexpected. " ++ detail
+          close = button [onClick RemoveError] [text "close this message"]
+      in div [Attributes.class "error"] [text hint, close]
 
 viewQuery : Maybe Query -> Html Msg
 viewQuery query1 =

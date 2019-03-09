@@ -4502,6 +4502,7 @@ function _Browser_load(url)
 		}
 	}));
 }
+var author$project$Main$NoError = {$: 'NoError'};
 var elm$core$Maybe$Nothing = {$: 'Nothing'};
 var elm$core$Basics$EQ = {$: 'EQ'};
 var elm$core$Basics$LT = {$: 'LT'};
@@ -4583,7 +4584,7 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var author$project$Main$initModel = {messages: _List_Nil, query: elm$core$Maybe$Nothing, runs: _List_Nil};
+var author$project$Main$initModel = {error: author$project$Main$NoError, query: elm$core$Maybe$Nothing, runs: _List_Nil};
 var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
@@ -4984,17 +4985,14 @@ var author$project$Main$init = function (flags_) {
 	return _Utils_Tuple2(author$project$Main$initModel, elm$core$Platform$Cmd$none);
 };
 var author$project$Main$ByGeneration = {$: 'ByGeneration'};
-var author$project$Main$FinishProgress = function (a) {
-	return {$: 'FinishProgress', a: a};
+var author$project$Main$HttpError = function (a) {
+	return {$: 'HttpError', a: a};
 };
 var author$project$Main$LoadedAllRuns = function (a) {
 	return {$: 'LoadedAllRuns', a: a};
 };
 var author$project$Main$LoadedRunInfo = function (a) {
 	return {$: 'LoadedRunInfo', a: a};
-};
-var author$project$Main$Progress = function (a) {
-	return {$: 'Progress', a: a};
 };
 var elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
@@ -5087,14 +5085,6 @@ var elm$url$Url$Builder$crossOrigin = F3(
 var author$project$Main$makeUrl = F2(
 	function (paths, params) {
 		return A3(elm$url$Url$Builder$crossOrigin, 'http://127.0.0.1:3000', paths, params);
-	});
-var author$project$Main$withMessage = F2(
-	function (msg, model) {
-		return _Utils_update(
-			model,
-			{
-				messages: A2(elm$core$List$cons, msg, model.messages)
-			});
 	});
 var elm$json$Json$Decode$map2 = _Json_map2;
 var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = elm$json$Json$Decode$map2(elm$core$Basics$apR);
@@ -5990,11 +5980,13 @@ var elm$url$Url$Builder$string = F2(
 var author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
+			case 'RemoveError':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{error: author$project$Main$NoError}),
+					elm$core$Platform$Cmd$none);
 			case 'LoadAllRuns':
-				var newModel = A2(
-					author$project$Main$withMessage,
-					author$project$Main$Progress('loading all runs'),
-					model);
 				var cmd = elm$http$Http$get(
 					{
 						expect: A2(
@@ -6010,24 +6002,25 @@ var author$project$Main$update = F2(
 									A2(elm$url$Url$Builder$string, 'order', 'time_stopped.desc,time_started.desc')
 								]))
 					});
-				return _Utils_Tuple2(newModel, cmd);
+				return _Utils_Tuple2(model, cmd);
 			case 'LoadedAllRuns':
 				var runsRes = msg.a;
 				if (runsRes.$ === 'Err') {
-					var newModel = A2(
-						author$project$Main$withMessage,
-						author$project$Main$Progress('network error'),
-						model);
-					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
-				} else {
-					var runs = runsRes.a;
-					var newModel = A2(
-						author$project$Main$withMessage,
-						author$project$Main$FinishProgress('loaded all runs'),
+					var err = runsRes.a;
+					return _Utils_Tuple2(
 						_Utils_update(
 							model,
-							{runs: runs}));
-					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+							{
+								error: author$project$Main$HttpError(err)
+							}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					var runs = runsRes.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{runs: runs}),
+						elm$core$Platform$Cmd$none);
 				}
 			case 'LoadRunInfo':
 				var runId = msg.a;
@@ -6055,11 +6048,14 @@ var author$project$Main$update = F2(
 			case 'LoadedRunInfo':
 				var runInfoRes = msg.a;
 				if (runInfoRes.$ === 'Err') {
-					var newModel = A2(
-						author$project$Main$withMessage,
-						author$project$Main$Progress('network error'),
-						model);
-					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+					var err = runInfoRes.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								error: author$project$Main$HttpError(err)
+							}),
+						elm$core$Platform$Cmd$none);
 				} else {
 					var runInfo = runInfoRes.a;
 					var newQuery = {
@@ -6336,32 +6332,60 @@ var author$project$Main$viewControl = function (model) {
 				author$project$Main$viewQuery(model.query)
 			]));
 };
-var author$project$Main$viewMessage = function (message) {
-	if (message.$ === 'Progress') {
-		var msg = message.a;
+var author$project$Main$RemoveError = {$: 'RemoveError'};
+var elm$json$Json$Encode$string = _Json_wrap;
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
 		return A2(
-			elm$html$Html$div,
-			_List_Nil,
-			_List_fromArray(
-				[
-					elm$html$Html$text(msg)
-				]));
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
+var author$project$Main$viewError = function (error) {
+	if (error.$ === 'NoError') {
+		return A2(elm$html$Html$div, _List_Nil, _List_Nil);
 	} else {
-		var msg = message.a;
-		return A2(
-			elm$html$Html$div,
-			_List_Nil,
+		var err = error.a;
+		var hint = function () {
+			switch (err.$) {
+				case 'BadUrl':
+					var url = err.a;
+					return 'BadUrl: you did not provide a valid URL. ' + url;
+				case 'Timeout':
+					return 'Timeout: it took too long to get a response';
+				case 'NetworkError':
+					return 'NetworkError: cannot connect to the remote host';
+				case 'BadStatus':
+					var code = err.a;
+					return 'BadStatus (' + (elm$core$String$fromInt(code) + '): the status code indicates failure');
+				default:
+					var detail = err.a;
+					return 'BadBody: the body of the response was something unexpected. ' + detail;
+			}
+		}();
+		var close = A2(
+			elm$html$Html$button,
 			_List_fromArray(
 				[
-					elm$html$Html$text(msg)
+					elm$html$Html$Events$onClick(author$project$Main$RemoveError)
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text('close this message')
+				]));
+		return A2(
+			elm$html$Html$div,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$class('error')
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text(hint),
+					close
 				]));
 	}
-};
-var author$project$Main$viewMessages = function (messages) {
-	return A2(
-		elm$html$Html$div,
-		_List_Nil,
-		A2(elm$core$List$map, author$project$Main$viewMessage, messages));
 };
 var author$project$Main$view = function (model) {
 	return A2(
@@ -6369,7 +6393,7 @@ var author$project$Main$view = function (model) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				author$project$Main$viewMessages(model.messages),
+				author$project$Main$viewError(model.error),
 				author$project$Main$viewControl(model)
 			]));
 };
