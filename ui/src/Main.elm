@@ -52,13 +52,11 @@ type Select a
   | SelectNone
 
 type alias Query =
-  { timeline: Timeline
-  , runId : RunId
+  { runId : RunId
   , speciesSns: List (Selection SpeciesSn)
   , generationSns: List (Selection GenerationSn)
   }
 
-type Timeline = ByGeneration
 type alias RunId = String
 type alias SpeciesSn = Int
 type alias GenerationSn = Int
@@ -68,7 +66,6 @@ type Error = NoError | HttpError Http.Error
 type Msg
   = LoadAllRuns
   | LoadedAllRuns (Result Http.Error (List Wire.Run.T))
-  | ChangeTimeline Timeline
   | LoadRunInfo RunId
   | LoadedRunInfo (Result Http.Error Wire.RunInfo.T)
   | RemoveError
@@ -120,20 +117,11 @@ update msg model =
           ({model|error=HttpError err}, Cmd.none)
         Ok runInfo ->
           let newQuery =
-                { timeline = case model.query of
-                    Nothing -> ByGeneration
-                    Just q -> q.timeline
-                , runId = runInfo.run_id
+                { runId = runInfo.run_id
                 , speciesSns = List.map Selected runInfo.species_sns
                 , generationSns = List.map Selected runInfo.generation_sns
                 }
               newModel = {model|query=Just newQuery}
-          in (newModel, Cmd.none)
-    ChangeTimeline timeline ->
-      case model.query of
-        Nothing -> (model, Cmd.none)
-        Just query ->
-          let newModel = {model|query=Just {query|timeline=timeline}}
           in (newModel, Cmd.none)
     SelectSpecies select ->
       case model.query of
@@ -260,17 +248,12 @@ viewQuery query1 =
   case query1 of
     Nothing -> div [] []
     Just query ->
-      let speciesAndGenerations =
-            case query.timeline of
-              ByGeneration ->
-                [ viewSns String.fromInt query.generationSns SelectGeneration "please select the interested generations" "generation-sn-container"
-                , viewSns String.fromInt query.speciesSns SelectSpecies "please select the interested species" "species-sn-container"]
-      in div [Attributes.id "query-container"] <| List.concat
-           [ [div [] [text <| "exploring run id: " ++ query.runId]]
-           , [viewTimeline query.timeline]
-           , speciesAndGenerations
-           , [viewRunQuery query1]
-           ]
+      div [Attributes.id "query-container"]
+        [ div [] [text <| "exploring run id: " ++ query.runId]
+        , viewSns String.fromInt query.generationSns SelectGeneration "please select the interested generations" "generation-sn-container"
+        , viewSns String.fromInt query.speciesSns SelectSpecies "please select the interested species" "species-sn-container"
+        , viewRunQuery query1
+        ]
 
 viewSns : (sn -> String) -> List (Selection sn) -> (Select sn -> Msg) -> String -> String -> Html Msg
 viewSns snToString selections toMsg hint containerId =
@@ -315,10 +298,3 @@ extractSelected selections =
   in if List.isEmpty allSelected
      then List.map unwrapSelection selections
      else allSelected
-
-viewTimeline : Timeline -> Html Msg
-viewTimeline timeline =
-  div []
-    -- TODO @incomplete: indicator of selection
-    [ button [onClick (ChangeTimeline ByGeneration)] [text "by generation"]
-    ]

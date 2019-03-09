@@ -4984,7 +4984,6 @@ var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$init = function (flags_) {
 	return _Utils_Tuple2(author$project$Main$initModel, elm$core$Platform$Cmd$none);
 };
-var author$project$Main$ByGeneration = {$: 'ByGeneration'};
 var author$project$Main$HttpError = function (a) {
 	return {$: 'HttpError', a: a};
 };
@@ -6174,16 +6173,7 @@ var author$project$Main$update = F2(
 					var newQuery = {
 						generationSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.generation_sns),
 						runId: runInfo.run_id,
-						speciesSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns),
-						timeline: function () {
-							var _n3 = model.query;
-							if (_n3.$ === 'Nothing') {
-								return author$project$Main$ByGeneration;
-							} else {
-								var q = _n3.a;
-								return q.timeline;
-							}
-						}()
+						speciesSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns)
 					};
 					var newModel = _Utils_update(
 						model,
@@ -6192,30 +6182,13 @@ var author$project$Main$update = F2(
 						});
 					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
 				}
-			case 'ChangeTimeline':
-				var timeline = msg.a;
-				var _n4 = model.query;
-				if (_n4.$ === 'Nothing') {
-					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-				} else {
-					var query = _n4.a;
-					var newModel = _Utils_update(
-						model,
-						{
-							query: elm$core$Maybe$Just(
-								_Utils_update(
-									query,
-									{timeline: timeline}))
-						});
-					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
-				}
 			case 'SelectSpecies':
 				var select = msg.a;
-				var _n5 = model.query;
-				if (_n5.$ === 'Nothing') {
+				var _n3 = model.query;
+				if (_n3.$ === 'Nothing') {
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 				} else {
-					var query = _n5.a;
+					var query = _n3.a;
 					var newQuery = _Utils_update(
 						query,
 						{
@@ -6231,11 +6204,11 @@ var author$project$Main$update = F2(
 				}
 			case 'SelectGeneration':
 				var select = msg.a;
-				var _n6 = model.query;
-				if (_n6.$ === 'Nothing') {
+				var _n4 = model.query;
+				if (_n4.$ === 'Nothing') {
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 				} else {
-					var query = _n6.a;
+					var query = _n4.a;
 					var newQuery = _Utils_update(
 						query,
 						{
@@ -6250,11 +6223,11 @@ var author$project$Main$update = F2(
 						elm$core$Platform$Cmd$none);
 				}
 			case 'LoadQuery':
-				var _n7 = model.query;
-				if (_n7.$ === 'Nothing') {
+				var _n5 = model.query;
+				if (_n5.$ === 'Nothing') {
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 				} else {
-					var query = _n7.a;
+					var query = _n5.a;
 					var speciesSns = author$project$Main$extractSelected(query.speciesSns);
 					var generationSns = author$project$Main$extractSelected(query.generationSns);
 					var cmd = elm$http$Http$get(
@@ -6482,81 +6455,30 @@ var author$project$Main$viewSns = F5(
 							A2(author$project$Main$viewSn, snToString, toMsg),
 							selections)))));
 	});
-var author$project$Main$ChangeTimeline = function (a) {
-	return {$: 'ChangeTimeline', a: a};
-};
-var author$project$Main$viewTimeline = function (timeline) {
-	return A2(
-		elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				elm$html$Html$button,
-				_List_fromArray(
-					[
-						elm$html$Html$Events$onClick(
-						author$project$Main$ChangeTimeline(author$project$Main$ByGeneration))
-					]),
-				_List_fromArray(
-					[
-						elm$html$Html$text('by generation')
-					]))
-			]));
-};
-var elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
-		}
-	});
-var elm$core$List$concat = function (lists) {
-	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
-};
 var author$project$Main$viewQuery = function (query1) {
 	if (query1.$ === 'Nothing') {
 		return A2(elm$html$Html$div, _List_Nil, _List_Nil);
 	} else {
 		var query = query1.a;
-		var speciesAndGenerations = function () {
-			var _n1 = query.timeline;
-			return _List_fromArray(
-				[
-					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationSns, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
-					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesSns, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container')
-				]);
-		}();
 		return A2(
 			elm$html$Html$div,
 			_List_fromArray(
 				[
 					elm$html$Html$Attributes$id('query-container')
 				]),
-			elm$core$List$concat(
-				_List_fromArray(
-					[
-						_List_fromArray(
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$div,
+					_List_Nil,
+					_List_fromArray(
 						[
-							A2(
-							elm$html$Html$div,
-							_List_Nil,
-							_List_fromArray(
-								[
-									elm$html$Html$text('exploring run id: ' + query.runId)
-								]))
-						]),
-						_List_fromArray(
-						[
-							author$project$Main$viewTimeline(query.timeline)
-						]),
-						speciesAndGenerations,
-						_List_fromArray(
-						[
-							author$project$Main$viewRunQuery(query1)
-						])
-					])));
+							elm$html$Html$text('exploring run id: ' + query.runId)
+						])),
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationSns, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesSns, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container'),
+					author$project$Main$viewRunQuery(query1)
+				]));
 	}
 };
 var author$project$Main$LoadRunInfo = function (a) {
