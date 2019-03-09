@@ -4584,7 +4584,7 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var author$project$Main$initModel = {error: author$project$Main$NoError, query: elm$core$Maybe$Nothing, runs: _List_Nil};
+var author$project$Main$initModel = {error: author$project$Main$NoError, genomes: _List_Nil, query: elm$core$Maybe$Nothing, runs: _List_Nil};
 var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
@@ -4991,11 +4991,23 @@ var author$project$Main$HttpError = function (a) {
 var author$project$Main$LoadedAllRuns = function (a) {
 	return {$: 'LoadedAllRuns', a: a};
 };
+var author$project$Main$LoadedQuery = function (a) {
+	return {$: 'LoadedQuery', a: a};
+};
 var author$project$Main$LoadedRunInfo = function (a) {
 	return {$: 'LoadedRunInfo', a: a};
 };
 var author$project$Main$Selected = function (a) {
 	return {$: 'Selected', a: a};
+};
+var author$project$Main$unwrapSelection = function (x) {
+	if (x.$ === 'Selected') {
+		var y = x.a;
+		return y;
+	} else {
+		var y = x.a;
+		return y;
+	}
 };
 var elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
@@ -5052,6 +5064,31 @@ var elm$core$List$foldr = F3(
 	function (fn, acc, ls) {
 		return A4(elm$core$List$foldrHelper, fn, acc, 0, ls);
 	});
+var elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _n0 = f(mx);
+		if (_n0.$ === 'Just') {
+			var x = _n0.a;
+			return A2(elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
 var elm$core$List$map = F2(
 	function (f, xs) {
 		return A3(
@@ -5066,6 +5103,18 @@ var elm$core$List$map = F2(
 			_List_Nil,
 			xs);
 	});
+var author$project$Main$extractSelected = function (selections) {
+	var selected = function (sx) {
+		if (sx.$ === 'Selected') {
+			var x = sx.a;
+			return elm$core$Maybe$Just(x);
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	};
+	var allSelected = A2(elm$core$List$filterMap, selected, selections);
+	return elm$core$List$isEmpty(allSelected) ? A2(elm$core$List$map, author$project$Main$unwrapSelection, selections) : allSelected;
+};
 var elm$url$Url$Builder$toQueryPair = function (_n0) {
 	var key = _n0.a;
 	var value = _n0.b;
@@ -5089,17 +5138,26 @@ var author$project$Main$makeUrl = F2(
 	function (paths, params) {
 		return A3(elm$url$Url$Builder$crossOrigin, 'http://127.0.0.1:3000', paths, params);
 	});
+var elm$core$String$concat = function (strings) {
+	return A2(elm$core$String$join, '', strings);
+};
+var author$project$Main$pgRestInInts = function (xs) {
+	var commas = A2(
+		elm$core$String$join,
+		',',
+		A2(elm$core$List$map, elm$core$String$fromInt, xs));
+	return elm$core$String$concat(
+		_List_fromArray(
+			['in.', '(', commas, ')']));
+};
+var elm$http$Http$Header = F2(
+	function (a, b) {
+		return {$: 'Header', a: a, b: b};
+	});
+var elm$http$Http$header = elm$http$Http$Header;
+var author$project$Main$pgRestSingleObjectHeader = A2(elm$http$Http$header, 'Accept', 'application/vnd.pgrst.object+json');
 var author$project$Main$Unselected = function (a) {
 	return {$: 'Unselected', a: a};
-};
-var author$project$Main$unwrapSelection = function (x) {
-	if (x.$ === 'Selected') {
-		var y = x.a;
-		return y;
-	} else {
-		var y = x.a;
-		return y;
-	}
 };
 var author$project$Main$runSelect = F2(
 	function (xs, select) {
@@ -5144,12 +5202,43 @@ var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
 			A2(elm$json$Json$Decode$field, key, valDecoder),
 			decoder);
 	});
+var author$project$Wire$Genome$T = F6(
+	function (run_id, generation_sn, species_sn, genome_id, original_fitness, graph) {
+		return {generation_sn: generation_sn, genome_id: genome_id, graph: graph, original_fitness: original_fitness, run_id: run_id, species_sn: species_sn};
+	});
+var elm$json$Json$Decode$float = _Json_decodeFloat;
+var elm$json$Json$Decode$int = _Json_decodeInt;
+var elm$json$Json$Decode$string = _Json_decodeString;
+var elm$json$Json$Decode$succeed = _Json_succeed;
+var author$project$Wire$Genome$decodeT = A3(
+	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+	'graph',
+	elm$json$Json$Decode$string,
+	A3(
+		NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+		'original_fitness',
+		elm$json$Json$Decode$float,
+		A3(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+			'genome_id',
+			elm$json$Json$Decode$string,
+			A3(
+				NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+				'species_sn',
+				elm$json$Json$Decode$int,
+				A3(
+					NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+					'generation_sn',
+					elm$json$Json$Decode$int,
+					A3(
+						NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+						'run_id',
+						elm$json$Json$Decode$string,
+						elm$json$Json$Decode$succeed(author$project$Wire$Genome$T)))))));
 var author$project$Wire$Run$T = F3(
 	function (run_id, time_started, time_stopped) {
 		return {run_id: run_id, time_started: time_started, time_stopped: time_stopped};
 	});
-var elm$json$Json$Decode$string = _Json_decodeString;
-var elm$json$Json$Decode$succeed = _Json_succeed;
 var author$project$Wire$Run$decodeT = A3(
 	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 	'time_stopped',
@@ -5167,7 +5256,6 @@ var author$project$Wire$RunInfo$T = F3(
 	function (run_id, species_sns, generation_sns) {
 		return {generation_sns: generation_sns, run_id: run_id, species_sns: species_sns};
 	});
-var elm$json$Json$Decode$int = _Json_decodeInt;
 var elm$json$Json$Decode$list = _Json_decodeList;
 var author$project$Wire$RunInfo$decodeT = A3(
 	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
@@ -5895,24 +5983,6 @@ var elm$http$Http$onEffects = F4(
 			},
 			A3(elm$http$Http$updateReqs, router, cmds, state.reqs));
 	});
-var elm$core$List$maybeCons = F3(
-	function (f, mx, xs) {
-		var _n0 = f(mx);
-		if (_n0.$ === 'Just') {
-			var x = _n0.a;
-			return A2(elm$core$List$cons, x, xs);
-		} else {
-			return xs;
-		}
-	});
-var elm$core$List$filterMap = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$foldr,
-			elm$core$List$maybeCons(f),
-			_List_Nil,
-			xs);
-	});
 var elm$core$Task$map2 = F3(
 	function (func, taskA, taskB) {
 		return A2(
@@ -6008,11 +6078,6 @@ var elm$http$Http$get = function (r) {
 	return elm$http$Http$request(
 		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
-var elm$http$Http$Header = F2(
-	function (a, b) {
-		return {$: 'Header', a: a, b: b};
-	});
-var elm$http$Http$header = elm$http$Http$Header;
 var elm$url$Url$percentEncode = _Url_percentEncode;
 var elm$url$Url$Builder$QueryParameter = F2(
 	function (a, b) {
@@ -6077,9 +6142,7 @@ var author$project$Main$update = F2(
 						body: elm$http$Http$emptyBody,
 						expect: A2(elm$http$Http$expectJson, author$project$Main$LoadedRunInfo, author$project$Wire$RunInfo$decodeT),
 						headers: _List_fromArray(
-							[
-								A2(elm$http$Http$header, 'Accept', 'application/vnd.pgrst.object+json')
-							]),
+							[author$project$Main$pgRestSingleObjectHeader]),
 						method: 'GET',
 						timeout: elm$core$Maybe$Nothing,
 						tracker: elm$core$Maybe$Nothing,
@@ -6164,7 +6227,7 @@ var author$project$Main$update = F2(
 							}),
 						elm$core$Platform$Cmd$none);
 				}
-			default:
+			case 'SelectGeneration':
 				var select = msg.a;
 				var _n6 = model.query;
 				if (_n6.$ === 'Nothing') {
@@ -6182,6 +6245,58 @@ var author$project$Main$update = F2(
 							{
 								query: elm$core$Maybe$Just(newQuery)
 							}),
+						elm$core$Platform$Cmd$none);
+				}
+			case 'LoadQuery':
+				var _n7 = model.query;
+				if (_n7.$ === 'Nothing') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var query = _n7.a;
+					var speciesSns = author$project$Main$extractSelected(query.speciesSns);
+					var generationSns = author$project$Main$extractSelected(query.generationSns);
+					var cmd = elm$http$Http$get(
+						{
+							expect: A2(
+								elm$http$Http$expectJson,
+								author$project$Main$LoadedQuery,
+								elm$json$Json$Decode$list(author$project$Wire$Genome$decodeT)),
+							url: A2(
+								author$project$Main$makeUrl,
+								_List_fromArray(
+									['population']),
+								_List_fromArray(
+									[
+										A2(elm$url$Url$Builder$string, 'run_id', 'eq.' + query.runId),
+										A2(
+										elm$url$Url$Builder$string,
+										'generation_sn',
+										author$project$Main$pgRestInInts(generationSns)),
+										A2(
+										elm$url$Url$Builder$string,
+										'species_sn',
+										author$project$Main$pgRestInInts(speciesSns))
+									]))
+						});
+					return _Utils_Tuple2(model, cmd);
+				}
+			default:
+				var queryRes = msg.a;
+				if (queryRes.$ === 'Err') {
+					var err = queryRes.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								error: author$project$Main$HttpError(err)
+							}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					var genomes = queryRes.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{genomes: genomes}),
 						elm$core$Platform$Cmd$none);
 				}
 		}
@@ -6384,15 +6499,38 @@ var author$project$Main$viewQuery = function (query1) {
 				speciesAndGenerations));
 	}
 };
+var author$project$Main$LoadQuery = {$: 'LoadQuery'};
+var elm$json$Json$Encode$bool = _Json_wrap;
+var elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$bool(bool));
+	});
+var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
+var author$project$Main$viewRunQuery = function (query) {
+	var disabled = function () {
+		if (query.$ === 'Nothing') {
+			return true;
+		} else {
+			return false;
+		}
+	}();
+	return A2(
+		elm$html$Html$button,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$disabled(disabled),
+				elm$html$Html$Events$onClick(author$project$Main$LoadQuery)
+			]),
+		_List_fromArray(
+			[
+				elm$html$Html$text('query')
+			]));
+};
 var author$project$Main$LoadRunInfo = function (a) {
 	return {$: 'LoadRunInfo', a: a};
-};
-var elm$core$List$isEmpty = function (xs) {
-	if (!xs.b) {
-		return true;
-	} else {
-		return false;
-	}
 };
 var elm$html$Html$table = _VirtualDom_node('table');
 var elm$html$Html$tbody = _VirtualDom_node('tbody');
@@ -6490,7 +6628,8 @@ var author$project$Main$viewControl = function (model) {
 			[
 				author$project$Main$viewLoadRuns,
 				author$project$Main$viewRuns(model.runs),
-				author$project$Main$viewQuery(model.query)
+				author$project$Main$viewQuery(model.query),
+				author$project$Main$viewRunQuery(model.query)
 			]));
 };
 var author$project$Main$RemoveError = {$: 'RemoveError'};

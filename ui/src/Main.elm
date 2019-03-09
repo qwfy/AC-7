@@ -10,6 +10,7 @@ import Url.Builder
 import Json.Decode as Decode
 import Wire.Run
 import Wire.RunInfo
+import Wire.Genome
 
 main =
   Browser.element
@@ -28,6 +29,15 @@ type alias Model =
   { error : Error
   , runs : List Wire.Run.T
   , query : Maybe Query
+  , genomes : List Wire.Genome.T
+  }
+
+initModel : Model
+initModel =
+  { error = NoError
+  , runs = []
+  , query = Nothing
+  , genomes = []
   }
 
 type Selection a
@@ -51,13 +61,6 @@ type alias RunId = String
 type alias SpeciesSn = Int
 type alias GenerationSn = Int
 
-initModel : Model
-initModel =
-  { error = NoError
-  , runs = []
-  , query = Nothing
-  }
-
 type Error = NoError | HttpError Http.Error
 
 type Msg
@@ -69,6 +72,8 @@ type Msg
   | RemoveError
   | SelectSpecies (Select SpeciesSn)
   | SelectGeneration (Select GenerationSn)
+  | LoadQuery
+  | LoadedQuery (Result Http.Error (List Wire.Genome.T))
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -78,8 +83,6 @@ makeUrl paths params =
   Url.Builder.crossOrigin
     "http://127.0.0.1:3000" paths params
 
--- Note: Consider clear the error on every message.
--- TODO @incomplete: find another place to put the error?
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -100,7 +103,7 @@ update msg model =
     LoadRunInfo runId ->
       let cmd = Http.request
             { method = "GET"
-            , headers = [Http.header "Accept" "application/vnd.pgrst.object+json"]
+            , headers = [pgRestSingleObjectHeader]
             , url = makeUrl ["run_info"]
                       [Url.Builder.string "run_id" ("eq." ++ runId)]
             , body = Http.emptyBody
@@ -144,6 +147,33 @@ update msg model =
         Just query ->
           let newQuery = {query|generationSns=runSelect query.generationSns select}
           in ({model|query=Just newQuery}, Cmd.none)
+    LoadQuery ->
+      case model.query of
+        Nothing -> (model, Cmd.none)
+        Just query ->
+          let speciesSns = extractSelected query.speciesSns
+              generationSns = extractSelected query.generationSns
+              cmd = Http.get
+                { url = makeUrl ["population"]
+                          [ Url.Builder.string "run_id" ("eq." ++ query.runId)
+                          , Url.Builder.string "generation_sn" <| pgRestInInts generationSns
+                          , Url.Builder.string "species_sn" <| pgRestInInts speciesSns
+                          ]
+                , expect = Http.expectJson LoadedQuery (Decode.list Wire.Genome.decodeT)
+                }
+          in (model, cmd)
+    LoadedQuery queryRes ->
+      case queryRes of
+        Err err -> ({model|error=HttpError err}, Cmd.none)
+        Ok genomes -> ({model|genomes=genomes}, Cmd.none)
+
+pgRestInInts : List Int -> String
+pgRestInInts xs =
+  let commas = String.join "," (List.map String.fromInt xs)
+  in String.concat ["in.", "(", commas, ")"]
+
+pgRestSingleObjectHeader : Http.Header
+pgRestSingleObjectHeader = Http.header "Accept" "application/vnd.pgrst.object+json"
 
 unwrapSelection : Selection a -> a
 unwrapSelection x =
@@ -179,6 +209,7 @@ viewControl model =
     [ viewLoadRuns
     , viewRuns model.runs
     , viewQuery model.query
+    , viewRunQuery model.query
     ]
 
 viewLoadRuns : Html Msg
@@ -199,8 +230,8 @@ viewRuns runs =
           , td [] [text run.time_stopped]
           ]
   in if List.isEmpty runs
-       then table [] []
-       else table [Attributes.id "run-table"] [headers, tbody [] (List.map viewRun runs)]
+     then table [] []
+     else table [Attributes.id "run-table"] [headers, tbody [] (List.map viewRun runs)]
 
 viewError : Error -> Html Msg
 viewError error =
@@ -256,6 +287,24 @@ viewSn snToString toMsg selection =
       [ text <| snToString sn
       ]
 
+viewRunQuery : Maybe Query -> Html Msg
+viewRunQuery query =
+  let disabled = case query of
+        Nothing -> True
+        Just _ -> False
+  in button [Attributes.disabled disabled, onClick LoadQuery] [text "query"]
+
+
+extractSelected : List (Selection sn) -> List sn
+extractSelected selections =
+  let selected sx =
+        case sx of
+          Selected x -> Just x
+          Unselected _ -> Nothing
+      allSelected = List.filterMap selected selections
+  in if List.isEmpty allSelected
+     then List.map unwrapSelection selections
+     else allSelected
 
 viewTimeline : Timeline -> Html Msg
 viewTimeline timeline =
