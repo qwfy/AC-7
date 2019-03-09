@@ -6107,9 +6107,9 @@ var author$project$Main$update = F2(
 				} else {
 					var runInfo = runInfoRes.a;
 					var newQuery = {
-						generationIds: A2(elm$core$List$map, author$project$Main$Selected, runInfo.generation_sns),
+						generationSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.generation_sns),
 						runId: runInfo.run_id,
-						speciesIds: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns),
+						speciesSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns),
 						timeline: function () {
 							var _n3 = model.query;
 							if (_n3.$ === 'Nothing') {
@@ -6154,7 +6154,7 @@ var author$project$Main$update = F2(
 					var newQuery = _Utils_update(
 						query,
 						{
-							speciesIds: A2(author$project$Main$runSelect, query.speciesIds, select)
+							speciesSns: A2(author$project$Main$runSelect, query.speciesSns, select)
 						});
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -6174,7 +6174,7 @@ var author$project$Main$update = F2(
 					var newQuery = _Utils_update(
 						query,
 						{
-							generationIds: A2(author$project$Main$runSelect, query.generationIds, select)
+							generationSns: A2(author$project$Main$runSelect, query.generationSns, select)
 						});
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -6359,8 +6359,8 @@ var author$project$Main$viewQuery = function (query1) {
 			var _n1 = query.timeline;
 			return _List_fromArray(
 				[
-					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationIds, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
-					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesIds, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container')
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationSns, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesSns, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container')
 				]);
 		}();
 		return A2(

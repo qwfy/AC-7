@@ -42,14 +42,14 @@ type Select a
 type alias Query =
   { timeline: Timeline
   , runId : RunId
-  , speciesIds: List (Selection SpeciesId)
-  , generationIds: List (Selection GenerationId)
+  , speciesSns: List (Selection SpeciesSn)
+  , generationSns: List (Selection GenerationSn)
   }
 
 type Timeline = ByGeneration
 type alias RunId = String
-type alias SpeciesId = Int
-type alias GenerationId = Int
+type alias SpeciesSn = Int
+type alias GenerationSn = Int
 
 initModel : Model
 initModel =
@@ -67,8 +67,8 @@ type Msg
   | LoadRunInfo RunId
   | LoadedRunInfo (Result Http.Error Wire.RunInfo.T)
   | RemoveError
-  | SelectSpecies (Select SpeciesId)
-  | SelectGeneration (Select GenerationId)
+  | SelectSpecies (Select SpeciesSn)
+  | SelectGeneration (Select GenerationSn)
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -119,8 +119,8 @@ update msg model =
                     Nothing -> ByGeneration
                     Just q -> q.timeline
                 , runId = runInfo.run_id
-                , speciesIds = List.map Selected runInfo.species_sns
-                , generationIds = List.map Selected runInfo.generation_sns
+                , speciesSns = List.map Selected runInfo.species_sns
+                , generationSns = List.map Selected runInfo.generation_sns
                 }
               newModel = {model|query=Just newQuery}
           in (newModel, Cmd.none)
@@ -135,14 +135,14 @@ update msg model =
         Nothing ->
           (model, Cmd.none)
         Just query ->
-          let newQuery = {query|speciesIds=runSelect query.speciesIds select}
+          let newQuery = {query|speciesSns=runSelect query.speciesSns select}
           in ({model|query=Just newQuery}, Cmd.none)
     SelectGeneration select ->
       case model.query of
         Nothing ->
           (model, Cmd.none)
         Just query ->
-          let newQuery = {query|generationIds=runSelect query.generationIds select}
+          let newQuery = {query|generationSns=runSelect query.generationSns select}
           in ({model|query=Just newQuery}, Cmd.none)
 
 unwrapSelection : Selection a -> a
@@ -229,8 +229,8 @@ viewQuery query1 =
       let speciesAndGenerations =
             case query.timeline of
               ByGeneration ->
-                [ viewSns String.fromInt query.generationIds SelectGeneration "please select the interested generations" "generation-sn-container"
-                , viewSns String.fromInt query.speciesIds SelectSpecies "please select the interested species" "species-sn-container"]
+                [ viewSns String.fromInt query.generationSns SelectGeneration "please select the interested generations" "generation-sn-container"
+                , viewSns String.fromInt query.speciesSns SelectSpecies "please select the interested species" "species-sn-container"]
       in div [Attributes.id "query-container"]
            ([ div [] [text <| "exploring run id: " ++ query.runId]
             , viewTimeline query.timeline
