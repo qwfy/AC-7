@@ -6251,9 +6251,18 @@ var author$project$Main$viewQuery = function (query1) {
 var author$project$Main$LoadRunInfo = function (a) {
 	return {$: 'LoadRunInfo', a: a};
 };
+var elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
 var elm$html$Html$table = _VirtualDom_node('table');
+var elm$html$Html$tbody = _VirtualDom_node('tbody');
 var elm$html$Html$td = _VirtualDom_node('td');
 var elm$html$Html$th = _VirtualDom_node('th');
+var elm$html$Html$thead = _VirtualDom_node('thead');
 var elm$html$Html$tr = _VirtualDom_node('tr');
 var author$project$Main$viewRuns = function (runs) {
 	var viewRun = function (run) {
@@ -6290,36 +6299,43 @@ var author$project$Main$viewRuns = function (runs) {
 				]));
 	};
 	var headers = A2(
-		elm$html$Html$th,
+		elm$html$Html$thead,
 		_List_Nil,
 		_List_fromArray(
 			[
 				A2(
-				elm$html$Html$td,
+				elm$html$Html$th,
 				_List_Nil,
 				_List_fromArray(
 					[
 						elm$html$Html$text('run id')
 					])),
 				A2(
-				elm$html$Html$td,
+				elm$html$Html$th,
 				_List_Nil,
 				_List_fromArray(
 					[
 						elm$html$Html$text('time started')
 					])),
 				A2(
-				elm$html$Html$td,
+				elm$html$Html$th,
 				_List_Nil,
 				_List_fromArray(
 					[
 						elm$html$Html$text('time stopped')
 					]))
 			]));
-	return A2(
+	return elm$core$List$isEmpty(runs) ? A2(elm$html$Html$table, _List_Nil, _List_Nil) : A2(
 		elm$html$Html$table,
 		_List_Nil,
-		A2(elm$core$List$map, viewRun, runs));
+		_List_fromArray(
+			[
+				headers,
+				A2(
+				elm$html$Html$tbody,
+				_List_Nil,
+				A2(elm$core$List$map, viewRun, runs))
+			]));
 };
 var author$project$Main$viewControl = function (model) {
 	return A2(

@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, text, li, ol, table, tr, td, th)
+import Html exposing (Html, button, div, text, li, ol, table, tr, td, th, thead, tbody)
 import Html.Events exposing (onClick)
 import Html.Attributes as Attributes
 import Http
@@ -143,10 +143,10 @@ viewLoadRuns =
 
 viewRuns : List Wire.Run.T -> Html Msg
 viewRuns runs =
-  let headers = th []
-        [ td [] [text "run id"]
-        , td [] [text "time started"]
-        , td [] [text "time stopped"]
+  let headers = thead []
+        [ th [] [text "run id"]
+        , th [] [text "time started"]
+        , th [] [text "time stopped"]
         ]
       viewRun run =
         tr []
@@ -154,7 +154,9 @@ viewRuns runs =
           , td [] [text run.time_started]
           , td [] [text run.time_stopped]
           ]
-  in table [] (List.map viewRun runs)
+  in if List.isEmpty runs
+       then table [] []
+       else table [] [headers, tbody [] (List.map viewRun runs)]
 
 viewError : Error -> Html Msg
 viewError error =
