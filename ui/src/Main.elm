@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Html exposing (Html, button, div, text, li, ol, table, tr, td, th, thead, tbody)
@@ -11,6 +11,8 @@ import Json.Decode as Decode
 import Wire.Run
 import Wire.RunInfo
 import Wire.Genome
+
+port flushGenomeGraphs : String -> Cmd msg
 
 main =
   Browser.element
@@ -165,7 +167,9 @@ update msg model =
     LoadedQuery queryRes ->
       case queryRes of
         Err err -> ({model|error=HttpError err}, Cmd.none)
-        Ok genomes -> ({model|genomes=genomes}, Cmd.none)
+        Ok genomes ->
+          let graphString = String.concat <| List.map (\x -> x.graph) genomes
+          in ({model|genomes=genomes}, flushGenomeGraphs graphString)
 
 pgRestInInts : List Int -> String
 pgRestInInts xs =
@@ -209,7 +213,6 @@ viewControl model =
     [ viewLoadRuns
     , viewRuns model.runs
     , viewQuery model.query
-    , viewRunQuery model.query
     ]
 
 viewLoadRuns : Html Msg
@@ -262,10 +265,12 @@ viewQuery query1 =
               ByGeneration ->
                 [ viewSns String.fromInt query.generationSns SelectGeneration "please select the interested generations" "generation-sn-container"
                 , viewSns String.fromInt query.speciesSns SelectSpecies "please select the interested species" "species-sn-container"]
-      in div [Attributes.id "query-container"]
-           ([ div [] [text <| "exploring run id: " ++ query.runId]
-            , viewTimeline query.timeline
-            ] ++ speciesAndGenerations)
+      in div [Attributes.id "query-container"] <| List.concat
+           [ [div [] [text <| "exploring run id: " ++ query.runId]]
+           , [viewTimeline query.timeline]
+           , speciesAndGenerations
+           , [viewRunQuery query1]
+           ]
 
 viewSns : (sn -> String) -> List (Selection sn) -> (Select sn -> Msg) -> String -> String -> Html Msg
 viewSns snToString selections toMsg hint containerId =
@@ -292,7 +297,12 @@ viewRunQuery query =
   let disabled = case query of
         Nothing -> True
         Just _ -> False
-  in button [Attributes.disabled disabled, onClick LoadQuery] [text "query"]
+  in button
+       [ Attributes.disabled disabled
+       , onClick LoadQuery
+       , Attributes.id "query-button"
+       ]
+       [ text "query"]
 
 
 extractSelected : List (Selection sn) -> List sn

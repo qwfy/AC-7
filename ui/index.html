@@ -50,17 +50,26 @@
       border: 1px dotted grey;
       color: grey;
     }
+    #query-button {
+      margin-top: 0.5em;
+    }
   </style>
 </head>
 
 <body>
 <div id="app"></div>
-  <script>
-    const app = Elm.Main.init({
-      node: document.getElementById("app"),
-      // This argument is useless, it's there to satisfy elm's requirement.
-      flags: ""
-    });
-  </script>
+<div id="genome-graph-container"></div>
+<script>
+  const app = Elm.Main.init({
+    node: document.getElementById("app"),
+    // This argument is useless, it's there to satisfy elm's requirement.
+    flags: ""
+  });
+
+  app.ports.flushGenomeGraphs.subscribe(function(graph) {
+    console.log(graph);
+    document.getElementById("genome-graph-container").innerHTML = graph;
+  });
+</script>
 </body>
 </html>

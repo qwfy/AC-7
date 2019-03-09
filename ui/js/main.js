@@ -5115,6 +5115,8 @@ var author$project$Main$extractSelected = function (selections) {
 	var allSelected = A2(elm$core$List$filterMap, selected, selections);
 	return elm$core$List$isEmpty(allSelected) ? A2(elm$core$List$map, author$project$Main$unwrapSelection, selections) : allSelected;
 };
+var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$flushGenomeGraphs = _Platform_outgoingPort('flushGenomeGraphs', elm$json$Json$Encode$string);
 var elm$url$Url$Builder$toQueryPair = function (_n0) {
 	var key = _n0.a;
 	var value = _n0.b;
@@ -6293,11 +6295,18 @@ var author$project$Main$update = F2(
 						elm$core$Platform$Cmd$none);
 				} else {
 					var genomes = queryRes.a;
+					var graphString = elm$core$String$concat(
+						A2(
+							elm$core$List$map,
+							function (x) {
+								return x.graph;
+							},
+							genomes));
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{genomes: genomes}),
-						elm$core$Platform$Cmd$none);
+						author$project$Main$flushGenomeGraphs(graphString));
 				}
 		}
 	});
@@ -6351,12 +6360,16 @@ var author$project$Main$SelectGeneration = function (a) {
 var author$project$Main$SelectSpecies = function (a) {
 	return {$: 'SelectSpecies', a: a};
 };
-var author$project$Main$SelectAll = {$: 'SelectAll'};
-var author$project$Main$SelectNone = {$: 'SelectNone'};
-var author$project$Main$ToggleOne = function (a) {
-	return {$: 'ToggleOne', a: a};
-};
-var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$LoadQuery = {$: 'LoadQuery'};
+var elm$json$Json$Encode$bool = _Json_wrap;
+var elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$bool(bool));
+	});
+var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -6364,6 +6377,33 @@ var elm$html$Html$Attributes$stringProperty = F2(
 			key,
 			elm$json$Json$Encode$string(string));
 	});
+var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
+var author$project$Main$viewRunQuery = function (query) {
+	var disabled = function () {
+		if (query.$ === 'Nothing') {
+			return true;
+		} else {
+			return false;
+		}
+	}();
+	return A2(
+		elm$html$Html$button,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$disabled(disabled),
+				elm$html$Html$Events$onClick(author$project$Main$LoadQuery),
+				elm$html$Html$Attributes$id('query-button')
+			]),
+		_List_fromArray(
+			[
+				elm$html$Html$text('query')
+			]));
+};
+var author$project$Main$SelectAll = {$: 'SelectAll'};
+var author$project$Main$SelectNone = {$: 'SelectNone'};
+var author$project$Main$ToggleOne = function (a) {
+	return {$: 'ToggleOne', a: a};
+};
 var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var author$project$Main$viewSn = F3(
 	function (snToString, toMsg, selection) {
@@ -6391,7 +6431,6 @@ var author$project$Main$viewSn = F3(
 				]));
 	});
 var elm$html$Html$div = _VirtualDom_node('div');
-var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var author$project$Main$viewSns = F5(
 	function (snToString, selections, toMsg, hint, containerId) {
 		var noneButton = A2(
@@ -6465,6 +6504,17 @@ var author$project$Main$viewTimeline = function (timeline) {
 					]))
 			]));
 };
+var elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
+		}
+	});
+var elm$core$List$concat = function (lists) {
+	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
+};
 var author$project$Main$viewQuery = function (query1) {
 	if (query1.$ === 'Nothing') {
 		return A2(elm$html$Html$div, _List_Nil, _List_Nil);
@@ -6484,50 +6534,30 @@ var author$project$Main$viewQuery = function (query1) {
 				[
 					elm$html$Html$Attributes$id('query-container')
 				]),
-			_Utils_ap(
+			elm$core$List$concat(
 				_List_fromArray(
 					[
-						A2(
-						elm$html$Html$div,
-						_List_Nil,
 						_List_fromArray(
-							[
-								elm$html$Html$text('exploring run id: ' + query.runId)
-							])),
-						author$project$Main$viewTimeline(query.timeline)
-					]),
-				speciesAndGenerations));
+						[
+							A2(
+							elm$html$Html$div,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text('exploring run id: ' + query.runId)
+								]))
+						]),
+						_List_fromArray(
+						[
+							author$project$Main$viewTimeline(query.timeline)
+						]),
+						speciesAndGenerations,
+						_List_fromArray(
+						[
+							author$project$Main$viewRunQuery(query1)
+						])
+					])));
 	}
-};
-var author$project$Main$LoadQuery = {$: 'LoadQuery'};
-var elm$json$Json$Encode$bool = _Json_wrap;
-var elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$bool(bool));
-	});
-var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
-var author$project$Main$viewRunQuery = function (query) {
-	var disabled = function () {
-		if (query.$ === 'Nothing') {
-			return true;
-		} else {
-			return false;
-		}
-	}();
-	return A2(
-		elm$html$Html$button,
-		_List_fromArray(
-			[
-				elm$html$Html$Attributes$disabled(disabled),
-				elm$html$Html$Events$onClick(author$project$Main$LoadQuery)
-			]),
-		_List_fromArray(
-			[
-				elm$html$Html$text('query')
-			]));
 };
 var author$project$Main$LoadRunInfo = function (a) {
 	return {$: 'LoadRunInfo', a: a};
@@ -6628,8 +6658,7 @@ var author$project$Main$viewControl = function (model) {
 			[
 				author$project$Main$viewLoadRuns,
 				author$project$Main$viewRuns(model.runs),
-				author$project$Main$viewQuery(model.query),
-				author$project$Main$viewRunQuery(model.query)
+				author$project$Main$viewQuery(model.query)
 			]));
 };
 var author$project$Main$RemoveError = {$: 'RemoveError'};
