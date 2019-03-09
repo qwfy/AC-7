@@ -1,0 +1,35 @@
+version: "3"
+
+networks:
+  ac7_net:
+    driver: bridge
+
+services:
+
+  pg:
+    image: postgres:11.1
+    container_name: ac7-pg
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=atreehasmanyleafs
+      - PGDATA=/pg-data
+    volumes:
+      - "./pg-data:/pg-data"
+    networks:
+      - ac7_net
+
+
+  pgrest:
+    image: postgrest/postgrest:v5.2.0-3900baa
+    container_name: ac7-pgrest
+    ports:
+      - 3000:3000
+    environment:
+      - PGRST_DB_URI=postgres://authenticator:aleafhasmanycells@pg:5432/postgres
+      - PGRST_DB_ANON_ROLE=web_anon
+      - PGRST_DB_SCHEMA=public
+    depends_on:
+      - pg
+    networks:
+      - ac7_net
