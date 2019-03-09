@@ -30,11 +30,20 @@ type alias Model =
   , query : Maybe Query
   }
 
+type Selection a
+  = Selected a
+  | Unselected a
+
+type Select a
+  = ToggleOne a
+  | SelectAll
+  | SelectNone
+
 type alias Query =
   { timeline: Timeline
   , runId : RunId
-  , speciesIds: List SpeciesId
-  , generationIds: List GenerationId
+  , speciesIds: List (Selection SpeciesId)
+  , generationIds: List (Selection GenerationId)
   }
 
 type Timeline = ByGeneration
@@ -58,6 +67,8 @@ type Msg
   | LoadRunInfo RunId
   | LoadedRunInfo (Result Http.Error Wire.RunInfo.T)
   | RemoveError
+  | SelectSpecies (Select SpeciesId)
+  | SelectGeneration (Select GenerationId)
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -108,8 +119,8 @@ update msg model =
                     Nothing -> ByGeneration
                     Just q -> q.timeline
                 , runId = runInfo.run_id
-                , speciesIds = runInfo.species_sns
-                , generationIds = runInfo.generation_sns
+                , speciesIds = List.map Selected runInfo.species_sns
+                , generationIds = List.map Selected runInfo.generation_sns
                 }
               newModel = {model|query=Just newQuery}
           in (newModel, Cmd.none)
@@ -119,7 +130,40 @@ update msg model =
         Just query ->
           let newModel = {model|query=Just {query|timeline=timeline}}
           in (newModel, Cmd.none)
+    SelectSpecies select ->
+      case model.query of
+        Nothing ->
+          (model, Cmd.none)
+        Just query ->
+          let newQuery = {query|speciesIds=runSelect query.speciesIds select}
+          in ({model|query=Just newQuery}, Cmd.none)
+    SelectGeneration select ->
+      case model.query of
+        Nothing ->
+          (model, Cmd.none)
+        Just query ->
+          let newQuery = {query|generationIds=runSelect query.generationIds select}
+          in ({model|query=Just newQuery}, Cmd.none)
 
+unwrapSelection : Selection a -> a
+unwrapSelection x =
+  case x of
+    Selected y -> y
+    Unselected y -> y
+
+runSelect : List (Selection a) -> Select a -> List (Selection a)
+runSelect xs select =
+  case select of
+    SelectAll -> List.map unwrapSelection xs |> List.map Selected
+    SelectNone -> List.map unwrapSelection xs |> List.map Unselected
+    ToggleOne target ->
+      let toggle source =
+            if unwrapSelection source == target
+            then case source of
+              Selected y -> Unselected y
+              Unselected y -> Selected y
+            else source
+      in List.map toggle xs
 
 view : Model -> Html Msg
 view model =
@@ -185,31 +229,32 @@ viewQuery query1 =
       let speciesAndGenerations =
             case query.timeline of
               ByGeneration ->
-                [viewGenerationIds query.generationIds, viewSpeciesIds query.speciesIds]
+                [ viewSns String.fromInt query.generationIds SelectGeneration "please select the interested generations" "generation-sn-container"
+                , viewSns String.fromInt query.speciesIds SelectSpecies "please select the interested species" "species-sn-container"]
       in div [Attributes.id "query-container"]
-           ([ div [] [text <| "displaying run id: " ++ query.runId]
+           ([ div [] [text <| "exploring run id: " ++ query.runId]
             , viewTimeline query.timeline
             ] ++ speciesAndGenerations)
 
-viewSpeciesIds : List SpeciesId -> Html Msg
-viewSpeciesIds speciesIds =
-  let allButton = button [] [text "all"]
-      hint = div [] [text "species SNs"]
-  in div [Attributes.id "species-sn-container"] (hint :: allButton :: List.map viewSpeciesId speciesIds)
+viewSns : (sn -> String) -> List (Selection sn) -> (Select sn -> Msg) -> String -> String -> Html Msg
+viewSns snToString selections toMsg hint containerId =
+  let allButton = button [onClick (toMsg SelectAll)] [text "select all"]
+      noneButton = button [onClick (toMsg SelectNone) ] [text "select none"]
+      hintElem = div [] [text hint]
+  in div [Attributes.id containerId] (hintElem :: allButton :: noneButton :: List.map (viewSn snToString toMsg) selections)
 
-viewSpeciesId : SpeciesId -> Html Msg
-viewSpeciesId speciesId =
-  button [] [text <| String.fromInt speciesId]
-
-viewGenerationIds : List GenerationId -> Html Msg
-viewGenerationIds generationIds =
-  let allButton = button [] [text "all"]
-      hint = div [] [text "generation SNs"]
-  in div [Attributes.id "generation-sn-container"] (hint :: allButton :: List.map viewGenerationId generationIds)
-
-viewGenerationId : GenerationId -> Html Msg
-viewGenerationId generationId =
-  button [] [text <| String.fromInt generationId]
+viewSn : (sn -> String) -> (Select sn -> Msg) -> Selection sn -> Html Msg
+viewSn snToString toMsg selection =
+  let sn = unwrapSelection selection
+      class = case selection of
+        Selected _ -> "sn-selected"
+        Unselected _ -> "sn-unselected"
+  in button
+      [ onClick (toMsg <| ToggleOne sn)
+      , Attributes.class class
+      ]
+      [ text <| snToString sn
+      ]
 
 
 viewTimeline : Timeline -> Html Msg

@@ -4994,6 +4994,9 @@ var author$project$Main$LoadedAllRuns = function (a) {
 var author$project$Main$LoadedRunInfo = function (a) {
 	return {$: 'LoadedRunInfo', a: a};
 };
+var author$project$Main$Selected = function (a) {
+	return {$: 'Selected', a: a};
+};
 var elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
 		if (!ls.b) {
@@ -5085,6 +5088,51 @@ var elm$url$Url$Builder$crossOrigin = F3(
 var author$project$Main$makeUrl = F2(
 	function (paths, params) {
 		return A3(elm$url$Url$Builder$crossOrigin, 'http://127.0.0.1:3000', paths, params);
+	});
+var author$project$Main$Unselected = function (a) {
+	return {$: 'Unselected', a: a};
+};
+var author$project$Main$unwrapSelection = function (x) {
+	if (x.$ === 'Selected') {
+		var y = x.a;
+		return y;
+	} else {
+		var y = x.a;
+		return y;
+	}
+};
+var author$project$Main$runSelect = F2(
+	function (xs, select) {
+		switch (select.$) {
+			case 'SelectAll':
+				return A2(
+					elm$core$List$map,
+					author$project$Main$Selected,
+					A2(elm$core$List$map, author$project$Main$unwrapSelection, xs));
+			case 'SelectNone':
+				return A2(
+					elm$core$List$map,
+					author$project$Main$Unselected,
+					A2(elm$core$List$map, author$project$Main$unwrapSelection, xs));
+			default:
+				var target = select.a;
+				var toggle = function (source) {
+					if (_Utils_eq(
+						author$project$Main$unwrapSelection(source),
+						target)) {
+						if (source.$ === 'Selected') {
+							var y = source.a;
+							return author$project$Main$Unselected(y);
+						} else {
+							var y = source.a;
+							return author$project$Main$Selected(y);
+						}
+					} else {
+						return source;
+					}
+				};
+				return A2(elm$core$List$map, toggle, xs);
+		}
 	});
 var elm$json$Json$Decode$map2 = _Json_map2;
 var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = elm$json$Json$Decode$map2(elm$core$Basics$apR);
@@ -6059,9 +6107,9 @@ var author$project$Main$update = F2(
 				} else {
 					var runInfo = runInfoRes.a;
 					var newQuery = {
-						generationIds: runInfo.generation_sns,
+						generationIds: A2(elm$core$List$map, author$project$Main$Selected, runInfo.generation_sns),
 						runId: runInfo.run_id,
-						speciesIds: runInfo.species_sns,
+						speciesIds: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns),
 						timeline: function () {
 							var _n3 = model.query;
 							if (_n3.$ === 'Nothing') {
@@ -6079,7 +6127,7 @@ var author$project$Main$update = F2(
 						});
 					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
 				}
-			default:
+			case 'ChangeTimeline':
 				var timeline = msg.a;
 				var _n4 = model.query;
 				if (_n4.$ === 'Nothing') {
@@ -6095,6 +6143,46 @@ var author$project$Main$update = F2(
 									{timeline: timeline}))
 						});
 					return _Utils_Tuple2(newModel, elm$core$Platform$Cmd$none);
+				}
+			case 'SelectSpecies':
+				var select = msg.a;
+				var _n5 = model.query;
+				if (_n5.$ === 'Nothing') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var query = _n5.a;
+					var newQuery = _Utils_update(
+						query,
+						{
+							speciesIds: A2(author$project$Main$runSelect, query.speciesIds, select)
+						});
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								query: elm$core$Maybe$Just(newQuery)
+							}),
+						elm$core$Platform$Cmd$none);
+				}
+			default:
+				var select = msg.a;
+				var _n6 = model.query;
+				if (_n6.$ === 'Nothing') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var query = _n6.a;
+					var newQuery = _Utils_update(
+						query,
+						{
+							generationIds: A2(author$project$Main$runSelect, query.generationIds, select)
+						});
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								query: elm$core$Maybe$Just(newQuery)
+							}),
+						elm$core$Platform$Cmd$none);
 				}
 		}
 	});
@@ -6142,17 +6230,17 @@ var author$project$Main$viewLoadRuns = A2(
 		[
 			elm$html$Html$text('load all runs')
 		]));
-var author$project$Main$viewGenerationId = function (generationId) {
-	return A2(
-		elm$html$Html$button,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text(
-				elm$core$String$fromInt(generationId))
-			]));
+var author$project$Main$SelectGeneration = function (a) {
+	return {$: 'SelectGeneration', a: a};
 };
-var elm$html$Html$div = _VirtualDom_node('div');
+var author$project$Main$SelectSpecies = function (a) {
+	return {$: 'SelectSpecies', a: a};
+};
+var author$project$Main$SelectAll = {$: 'SelectAll'};
+var author$project$Main$SelectNone = {$: 'SelectNone'};
+var author$project$Main$ToggleOne = function (a) {
+	return {$: 'ToggleOne', a: a};
+};
 var elm$json$Json$Encode$string = _Json_wrap;
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
@@ -6161,75 +6249,85 @@ var elm$html$Html$Attributes$stringProperty = F2(
 			key,
 			elm$json$Json$Encode$string(string));
 	});
+var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
+var author$project$Main$viewSn = F3(
+	function (snToString, toMsg, selection) {
+		var sn = author$project$Main$unwrapSelection(selection);
+		var _class = function () {
+			if (selection.$ === 'Selected') {
+				return 'sn-selected';
+			} else {
+				return 'sn-unselected';
+			}
+		}();
+		return A2(
+			elm$html$Html$button,
+			_List_fromArray(
+				[
+					elm$html$Html$Events$onClick(
+					toMsg(
+						author$project$Main$ToggleOne(sn))),
+					elm$html$Html$Attributes$class(_class)
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text(
+					snToString(sn))
+				]));
+	});
+var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
-var author$project$Main$viewGenerationIds = function (generationIds) {
-	var hint = A2(
-		elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text('generation SNs')
-			]));
-	var allButton = A2(
-		elm$html$Html$button,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text('all')
-			]));
-	return A2(
-		elm$html$Html$div,
-		_List_fromArray(
-			[
-				elm$html$Html$Attributes$id('generation-sn-container')
-			]),
-		A2(
-			elm$core$List$cons,
-			hint,
+var author$project$Main$viewSns = F5(
+	function (snToString, selections, toMsg, hint, containerId) {
+		var noneButton = A2(
+			elm$html$Html$button,
+			_List_fromArray(
+				[
+					elm$html$Html$Events$onClick(
+					toMsg(author$project$Main$SelectNone))
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text('select none')
+				]));
+		var hintElem = A2(
+			elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					elm$html$Html$text(hint)
+				]));
+		var allButton = A2(
+			elm$html$Html$button,
+			_List_fromArray(
+				[
+					elm$html$Html$Events$onClick(
+					toMsg(author$project$Main$SelectAll))
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text('select all')
+				]));
+		return A2(
+			elm$html$Html$div,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$id(containerId)
+				]),
 			A2(
 				elm$core$List$cons,
-				allButton,
-				A2(elm$core$List$map, author$project$Main$viewGenerationId, generationIds))));
-};
-var author$project$Main$viewSpeciesId = function (speciesId) {
-	return A2(
-		elm$html$Html$button,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text(
-				elm$core$String$fromInt(speciesId))
-			]));
-};
-var author$project$Main$viewSpeciesIds = function (speciesIds) {
-	var hint = A2(
-		elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text('species SNs')
-			]));
-	var allButton = A2(
-		elm$html$Html$button,
-		_List_Nil,
-		_List_fromArray(
-			[
-				elm$html$Html$text('all')
-			]));
-	return A2(
-		elm$html$Html$div,
-		_List_fromArray(
-			[
-				elm$html$Html$Attributes$id('species-sn-container')
-			]),
-		A2(
-			elm$core$List$cons,
-			hint,
-			A2(
-				elm$core$List$cons,
-				allButton,
-				A2(elm$core$List$map, author$project$Main$viewSpeciesId, speciesIds))));
-};
+				hintElem,
+				A2(
+					elm$core$List$cons,
+					allButton,
+					A2(
+						elm$core$List$cons,
+						noneButton,
+						A2(
+							elm$core$List$map,
+							A2(author$project$Main$viewSn, snToString, toMsg),
+							selections)))));
+	});
 var author$project$Main$ChangeTimeline = function (a) {
 	return {$: 'ChangeTimeline', a: a};
 };
@@ -6261,8 +6359,8 @@ var author$project$Main$viewQuery = function (query1) {
 			var _n1 = query.timeline;
 			return _List_fromArray(
 				[
-					author$project$Main$viewGenerationIds(query.generationIds),
-					author$project$Main$viewSpeciesIds(query.speciesIds)
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationIds, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
+					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesIds, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container')
 				]);
 		}();
 		return A2(
@@ -6279,7 +6377,7 @@ var author$project$Main$viewQuery = function (query1) {
 						_List_Nil,
 						_List_fromArray(
 							[
-								elm$html$Html$text('displaying run id: ' + query.runId)
+								elm$html$Html$text('exploring run id: ' + query.runId)
 							])),
 						author$project$Main$viewTimeline(query.timeline)
 					]),
@@ -6396,7 +6494,6 @@ var author$project$Main$viewControl = function (model) {
 			]));
 };
 var author$project$Main$RemoveError = {$: 'RemoveError'};
-var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var author$project$Main$viewError = function (error) {
 	if (error.$ === 'NoError') {
 		return A2(elm$html$Html$div, _List_Nil, _List_Nil);
