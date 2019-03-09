@@ -7,6 +7,6 @@ OLDDIR="$(pwd)"
 
 cd "$PROJECT_ROOT/ui"
 
-elm make src/*.elm --output=index.html
+elm make src/*.elm --output=js/main.js
 
 cd "$OLDDIR"

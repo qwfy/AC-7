@@ -5,6 +5,10 @@ import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import Html.Attributes exposing (disabled)
 import Http
+import Url.Builder
+
+import Json.Decode as Decode
+import Wire.Run
 
 main =
   Browser.element
@@ -20,40 +24,95 @@ init : String -> (Model, Cmd Msg)
 init flags_ = (initModel, Cmd.none)
 
 type alias Model =
-  { error: Error
+  { messages: List Message
+  , run : Maybe RunId
+  , species: Maybe SpeciesId
+  , generation: Maybe GenerationId
   }
+
+type alias RunId = String
+type alias SpeciesId = String
+type alias GenerationId = String
 
 initModel : Model
 initModel =
-  { error = NoError
+  { messages = []
+  , run = Nothing
+  , species = Nothing
+  , generation = Nothing
   }
 
 type Msg
-  = Enroll
+  = LoadAllRuns
+  | LoadedAllRuns (Result Http.Error (List Wire.Run.Run))
 
-type Error
-  = NoError
-  | HttpError Http.Error
+type Message
+  = Progress String
+  | FinishProgress String
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
 -- TODO @incomplete: do not hard code the ip address and the port
-pathToUrl : String -> String
-pathToUrl path = "http://127.0.0.1:3000" ++ path
+makeUrl : List String -> List Url.Builder.QueryParameter -> String
+makeUrl paths params =
+  Url.Builder.crossOrigin
+    "http://127.0.0.1:3000" paths params
+
+withMessage : Message -> Model -> Model
+withMessage msg model =
+  {model | messages = msg :: model.messages}
 
 -- Note: Consider clear the error on every message.
 -- TODO @incomplete: find another place to put the error?
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg model = (model, Cmd.none)
+update msg model =
+  case msg of
+    LoadAllRuns ->
+      let cmd = Http.get
+            { url = makeUrl ["run"] [Url.Builder.string "order" "time_stopped.desc,time_started.desc"]
+            , expect = Http.expectJson LoadedAllRuns (Decode.list Wire.Run.decodeRun)
+            }
+          newModel = withMessage (Progress "loading all runs") model
+      in (newModel, cmd)
+    LoadedAllRuns runsRes ->
+      case runsRes of
+        Err _ ->
+          let newModel = withMessage (Progress "network error") model
+          in (newModel, Cmd.none)
+        Ok runs ->
+          let newModel = withMessage (FinishProgress "loaded all runs") model
+          in (newModel, Cmd.none)
+
 
 view : Model -> Html Msg
 view model =
-  div [] [viewError model.error]
+  div []
+    [ viewMessages model.messages
+    , viewControl model
+    ]
 
-viewError : Error -> Html Msg
-viewError error =
-  case error of
-    NoError -> div [] []
-    HttpError _ ->
-      -- TODO @incomplete: More detailed error message
-      div [] [text "network error"]
+
+viewControl : Model -> Html Msg
+viewControl model =
+  div []
+    [ viewLoadRuns
+    -- , viewRuns
+    -- , viewSpecies
+    -- , viewGenerations
+    ]
+
+viewLoadRuns : Html Msg
+viewLoadRuns =
+  button [onClick LoadAllRuns] [text "load all runs"]
+
+viewMessages : List Message -> Html Msg
+viewMessages messages =
+  div [] (List.map viewMessage messages)
+
+viewMessage : Message -> Html Msg
+viewMessage message =
+  case message of
+    Progress msg ->
+      div [] [text msg]
+    FinishProgress msg ->
+      div [] [text msg]
