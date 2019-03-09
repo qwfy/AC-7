@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, text, li, ol, table, tr, td, th, thead, tbody)
+import Html exposing (Html, button, div, text, li, ol, table, tr, td, th, thead, tbody, span)
 import Html.Events exposing (onClick)
 import Html.Attributes as Attributes
 import Http
@@ -55,7 +55,10 @@ type alias Query =
   { runId : RunId
   , speciesSns: List (Selection SpeciesSn)
   , generationSns: List (Selection GenerationSn)
+  , orderByOriginalFitness : Order
   }
+
+type Order = Asc | Desc | UndefinedOrder
 
 type alias RunId = String
 type alias SpeciesSn = Int
@@ -73,6 +76,7 @@ type Msg
   | SelectGeneration (Select GenerationSn)
   | LoadQuery
   | LoadedQuery (Result Http.Error (List Wire.Genome.T))
+  | ChangeOriginalFitnessOrder Order
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -120,6 +124,7 @@ update msg model =
                 { runId = runInfo.run_id
                 , speciesSns = List.map Selected runInfo.species_sns
                 , generationSns = List.map Selected runInfo.generation_sns
+                , orderByOriginalFitness = Desc
                 }
               newModel = {model|query=Just newQuery}
           in (newModel, Cmd.none)
@@ -143,12 +148,16 @@ update msg model =
         Just query ->
           let speciesSns = extractSelected query.speciesSns
               generationSns = extractSelected query.generationSns
+              orderByOriginalFitness = case query.orderByOriginalFitness of
+                UndefinedOrder -> []
+                Asc -> [Url.Builder.string "order" "original_fitness.asc"]
+                Desc -> [Url.Builder.string "order" "original_fitness.desc"]
               cmd = Http.get
-                { url = makeUrl ["population"]
+                { url = makeUrl ["population"] <|
                           [ Url.Builder.string "run_id" ("eq." ++ query.runId)
                           , Url.Builder.string "generation_sn" <| pgRestInInts generationSns
                           , Url.Builder.string "species_sn" <| pgRestInInts speciesSns
-                          ]
+                          ] ++ orderByOriginalFitness
                 , expect = Http.expectJson LoadedQuery (Decode.list Wire.Genome.decodeT)
                 }
           in (model, cmd)
@@ -158,6 +167,12 @@ update msg model =
         Ok genomes ->
           let graphString = String.concat <| List.map (\x -> x.graph) genomes
           in ({model|genomes=genomes}, flushGenomeGraphs graphString)
+    ChangeOriginalFitnessOrder order ->
+      case model.query of
+        Nothing -> (model, Cmd.none)
+        Just query ->
+          let newQuery = {query|orderByOriginalFitness=order}
+          in ({model|query=Just newQuery}, Cmd.none)
 
 pgRestInInts : List Int -> String
 pgRestInInts xs =
@@ -252,7 +267,7 @@ viewQuery query1 =
         [ div [] [text <| "exploring run id: " ++ query.runId]
         , viewSns String.fromInt query.generationSns SelectGeneration "please select the interested generations" "generation-sn-container"
         , viewSns String.fromInt query.speciesSns SelectSpecies "please select the interested species" "species-sn-container"
-        , viewRunQuery query1
+        , viewRunQuery query
         ]
 
 viewSns : (sn -> String) -> List (Selection sn) -> (Select sn -> Msg) -> String -> String -> Html Msg
@@ -275,17 +290,25 @@ viewSn snToString toMsg selection =
       [ text <| snToString sn
       ]
 
-viewRunQuery : Maybe Query -> Html Msg
+viewRunQuery : Query -> Html Msg
 viewRunQuery query =
-  let disabled = case query of
-        Nothing -> True
-        Just _ -> False
-  in button
-       [ Attributes.disabled disabled
-       , onClick LoadQuery
-       , Attributes.id "query-button"
+  let queryButton = button [onClick LoadQuery, Attributes.id "query-button"] [text "query"]
+      orderByOFSelected x =
+        Attributes.class <|
+          if x == query.orderByOriginalFitness
+          then "order-by-original-fitness-selected"
+          else "order-by-original-fitness-unselected"
+      orderByOriginalFitness =
+        div [Attributes.id "order-by-fitness-container"]
+          [ span [Attributes.attribute "display" "inline-block"] [text "order by original fitness:"]
+          , button [onClick <| ChangeOriginalFitnessOrder Desc, orderByOFSelected Desc] [text "desc"]
+          , button [onClick <| ChangeOriginalFitnessOrder Asc, orderByOFSelected Asc] [text "asc"]
+          , button [onClick <| ChangeOriginalFitnessOrder UndefinedOrder, orderByOFSelected UndefinedOrder] [text "no order"]
+          ]
+  in div [Attributes.class "run-query-container"]
+       [ orderByOriginalFitness
+       , queryButton
        ]
-       [ text "query"]
 
 
 extractSelected : List (Selection sn) -> List sn

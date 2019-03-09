@@ -4984,6 +4984,7 @@ var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$init = function (flags_) {
 	return _Utils_Tuple2(author$project$Main$initModel, elm$core$Platform$Cmd$none);
 };
+var author$project$Main$Desc = {$: 'Desc'};
 var author$project$Main$HttpError = function (a) {
 	return {$: 'HttpError', a: a};
 };
@@ -6172,6 +6173,7 @@ var author$project$Main$update = F2(
 					var runInfo = runInfoRes.a;
 					var newQuery = {
 						generationSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.generation_sns),
+						orderByOriginalFitness: author$project$Main$Desc,
 						runId: runInfo.run_id,
 						speciesSns: A2(elm$core$List$map, author$project$Main$Selected, runInfo.species_sns)
 					};
@@ -6229,6 +6231,23 @@ var author$project$Main$update = F2(
 				} else {
 					var query = _n5.a;
 					var speciesSns = author$project$Main$extractSelected(query.speciesSns);
+					var orderByOriginalFitness = function () {
+						var _n6 = query.orderByOriginalFitness;
+						switch (_n6.$) {
+							case 'UndefinedOrder':
+								return _List_Nil;
+							case 'Asc':
+								return _List_fromArray(
+									[
+										A2(elm$url$Url$Builder$string, 'order', 'original_fitness.asc')
+									]);
+							default:
+								return _List_fromArray(
+									[
+										A2(elm$url$Url$Builder$string, 'order', 'original_fitness.desc')
+									]);
+						}
+					}();
 					var generationSns = author$project$Main$extractSelected(query.generationSns);
 					var cmd = elm$http$Http$get(
 						{
@@ -6240,22 +6259,24 @@ var author$project$Main$update = F2(
 								author$project$Main$makeUrl,
 								_List_fromArray(
 									['population']),
-								_List_fromArray(
-									[
-										A2(elm$url$Url$Builder$string, 'run_id', 'eq.' + query.runId),
-										A2(
-										elm$url$Url$Builder$string,
-										'generation_sn',
-										author$project$Main$pgRestInInts(generationSns)),
-										A2(
-										elm$url$Url$Builder$string,
-										'species_sn',
-										author$project$Main$pgRestInInts(speciesSns))
-									]))
+								_Utils_ap(
+									_List_fromArray(
+										[
+											A2(elm$url$Url$Builder$string, 'run_id', 'eq.' + query.runId),
+											A2(
+											elm$url$Url$Builder$string,
+											'generation_sn',
+											author$project$Main$pgRestInInts(generationSns)),
+											A2(
+											elm$url$Url$Builder$string,
+											'species_sn',
+											author$project$Main$pgRestInInts(speciesSns))
+										]),
+									orderByOriginalFitness))
 						});
 					return _Utils_Tuple2(model, cmd);
 				}
-			default:
+			case 'LoadedQuery':
 				var queryRes = msg.a;
 				if (queryRes.$ === 'Err') {
 					var err = queryRes.a;
@@ -6280,6 +6301,24 @@ var author$project$Main$update = F2(
 							model,
 							{genomes: genomes}),
 						author$project$Main$flushGenomeGraphs(graphString));
+				}
+			default:
+				var order = msg.a;
+				var _n8 = model.query;
+				if (_n8.$ === 'Nothing') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var query = _n8.a;
+					var newQuery = _Utils_update(
+						query,
+						{orderByOriginalFitness: order});
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								query: elm$core$Maybe$Just(newQuery)
+							}),
+						elm$core$Platform$Cmd$none);
 				}
 		}
 	});
@@ -6333,16 +6372,22 @@ var author$project$Main$SelectGeneration = function (a) {
 var author$project$Main$SelectSpecies = function (a) {
 	return {$: 'SelectSpecies', a: a};
 };
+var author$project$Main$Asc = {$: 'Asc'};
+var author$project$Main$ChangeOriginalFitnessOrder = function (a) {
+	return {$: 'ChangeOriginalFitnessOrder', a: a};
+};
 var author$project$Main$LoadQuery = {$: 'LoadQuery'};
-var elm$json$Json$Encode$bool = _Json_wrap;
-var elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
+var author$project$Main$UndefinedOrder = {$: 'UndefinedOrder'};
+var elm$html$Html$div = _VirtualDom_node('div');
+var elm$html$Html$span = _VirtualDom_node('span');
+var elm$virtual_dom$VirtualDom$attribute = F2(
+	function (key, value) {
 		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$bool(bool));
+			_VirtualDom_attribute,
+			_VirtualDom_noOnOrFormAction(key),
+			_VirtualDom_noJavaScriptOrHtmlUri(value));
 	});
-var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
+var elm$html$Html$Attributes$attribute = elm$virtual_dom$VirtualDom$attribute;
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -6350,20 +6395,13 @@ var elm$html$Html$Attributes$stringProperty = F2(
 			key,
 			elm$json$Json$Encode$string(string));
 	});
+var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var author$project$Main$viewRunQuery = function (query) {
-	var disabled = function () {
-		if (query.$ === 'Nothing') {
-			return true;
-		} else {
-			return false;
-		}
-	}();
-	return A2(
+	var queryButton = A2(
 		elm$html$Html$button,
 		_List_fromArray(
 			[
-				elm$html$Html$Attributes$disabled(disabled),
 				elm$html$Html$Events$onClick(author$project$Main$LoadQuery),
 				elm$html$Html$Attributes$id('query-button')
 			]),
@@ -6371,13 +6409,79 @@ var author$project$Main$viewRunQuery = function (query) {
 			[
 				elm$html$Html$text('query')
 			]));
+	var orderByOFSelected = function (x) {
+		return elm$html$Html$Attributes$class(
+			_Utils_eq(x, query.orderByOriginalFitness) ? 'order-by-original-fitness-selected' : 'order-by-original-fitness-unselected');
+	};
+	var orderByOriginalFitness = A2(
+		elm$html$Html$div,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$id('order-by-fitness-container')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$span,
+				_List_fromArray(
+					[
+						A2(elm$html$Html$Attributes$attribute, 'display', 'inline-block')
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('order by original fitness:')
+					])),
+				A2(
+				elm$html$Html$button,
+				_List_fromArray(
+					[
+						elm$html$Html$Events$onClick(
+						author$project$Main$ChangeOriginalFitnessOrder(author$project$Main$Desc)),
+						orderByOFSelected(author$project$Main$Desc)
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('desc')
+					])),
+				A2(
+				elm$html$Html$button,
+				_List_fromArray(
+					[
+						elm$html$Html$Events$onClick(
+						author$project$Main$ChangeOriginalFitnessOrder(author$project$Main$Asc)),
+						orderByOFSelected(author$project$Main$Asc)
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('asc')
+					])),
+				A2(
+				elm$html$Html$button,
+				_List_fromArray(
+					[
+						elm$html$Html$Events$onClick(
+						author$project$Main$ChangeOriginalFitnessOrder(author$project$Main$UndefinedOrder)),
+						orderByOFSelected(author$project$Main$UndefinedOrder)
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('no order')
+					]))
+			]));
+	return A2(
+		elm$html$Html$div,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$class('run-query-container')
+			]),
+		_List_fromArray(
+			[orderByOriginalFitness, queryButton]));
 };
 var author$project$Main$SelectAll = {$: 'SelectAll'};
 var author$project$Main$SelectNone = {$: 'SelectNone'};
 var author$project$Main$ToggleOne = function (a) {
 	return {$: 'ToggleOne', a: a};
 };
-var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var author$project$Main$viewSn = F3(
 	function (snToString, toMsg, selection) {
 		var sn = author$project$Main$unwrapSelection(selection);
@@ -6403,7 +6507,6 @@ var author$project$Main$viewSn = F3(
 					snToString(sn))
 				]));
 	});
-var elm$html$Html$div = _VirtualDom_node('div');
 var author$project$Main$viewSns = F5(
 	function (snToString, selections, toMsg, hint, containerId) {
 		var noneButton = A2(
@@ -6477,7 +6580,7 @@ var author$project$Main$viewQuery = function (query1) {
 						])),
 					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.generationSns, author$project$Main$SelectGeneration, 'please select the interested generations', 'generation-sn-container'),
 					A5(author$project$Main$viewSns, elm$core$String$fromInt, query.speciesSns, author$project$Main$SelectSpecies, 'please select the interested species', 'species-sn-container'),
-					author$project$Main$viewRunQuery(query1)
+					author$project$Main$viewRunQuery(query)
 				]));
 	}
 };
