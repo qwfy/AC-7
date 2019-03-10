@@ -16,6 +16,7 @@ services:
       - PGDATA=/pg-data
     volumes:
       - "./pg-data:/pg-data"
+      - "./postgresql.conf:/pg-data/postgresql.conf"
     networks:
       - ac7_net
 
