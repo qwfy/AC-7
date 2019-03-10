@@ -33,3 +33,18 @@ services:
       - pg
     networks:
       - ac7_net
+
+  server:
+    build:
+      context: server-docker
+      args:
+        ARG_UID: ${ARG_UID}
+        ARG_GID: ${ARG_GID}
+    depends_on:
+      - pgrest
+    ports:
+      - 8080:8080
+    volumes:
+      - "./:/srv/http"
+    networks:
+      - ac7_net
