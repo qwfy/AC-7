@@ -56,7 +56,13 @@ type alias Query =
   , speciesSns: List (Selection SpeciesSn)
   , generationSns: List (Selection GenerationSn)
   , orderByOriginalFitness : Order
+  , displayMethod : DisplayMethod
   }
+
+type DisplayMethod
+  = SpeciesMajor    -- clollect the same species together, this shows the evolution of a single species
+  | GenerationMajor -- collect the same generation together, this shows the different species in a single generation
+  | UndefinedDisplayMethod
 
 type Order = Asc | Desc | UndefinedOrder
 
@@ -77,6 +83,7 @@ type Msg
   | LoadQuery
   | LoadedQuery (Result Http.Error (List Wire.Genome.T))
   | ChangeOriginalFitnessOrder Order
+  | ChangeDisplayMethod DisplayMethod
 
 -- TODO @incomplete: make sure there is a leading slash in the path
 -- TODO @incomplete: read this port from a config file
@@ -125,6 +132,7 @@ update msg model =
                 , speciesSns = List.map Selected runInfo.species_sns
                 , generationSns = List.map Selected runInfo.generation_sns
                 , orderByOriginalFitness = Desc
+                , displayMethod = UndefinedDisplayMethod
                 }
               newModel = {model|query=Just newQuery}
           in (newModel, Cmd.none)
@@ -172,6 +180,12 @@ update msg model =
         Nothing -> (model, Cmd.none)
         Just query ->
           let newQuery = {query|orderByOriginalFitness=order}
+          in ({model|query=Just newQuery}, Cmd.none)
+    ChangeDisplayMethod displayMethod ->
+      case model.query of
+        Nothing -> (model, Cmd.none)
+        Just query ->
+          let newQuery = {query|displayMethod=displayMethod}
           in ({model|query=Just newQuery}, Cmd.none)
 
 pgRestInInts : List Int -> String
@@ -303,10 +317,23 @@ viewRunQuery query =
           [ span [Attributes.attribute "display" "inline-block"] [text "order by original fitness:"]
           , button [onClick <| ChangeOriginalFitnessOrder Desc, orderByOFSelected Desc] [text "desc"]
           , button [onClick <| ChangeOriginalFitnessOrder Asc, orderByOFSelected Asc] [text "asc"]
-          , button [onClick <| ChangeOriginalFitnessOrder UndefinedOrder, orderByOFSelected UndefinedOrder] [text "no order"]
+          , button [onClick <| ChangeOriginalFitnessOrder UndefinedOrder, orderByOFSelected UndefinedOrder] [text "undefined order"]
+          ]
+      dmSelected x =
+        Attributes.class <|
+          if x == query.displayMethod
+          then "display-method-selected"
+          else "display-method-unselected"
+      displayMethod =
+        div [Attributes.id "display-method-container"]
+          [ span [Attributes.attribute "display" "inline-block"] [text "display method:"]
+          , button [onClick <| ChangeDisplayMethod SpeciesMajor, dmSelected SpeciesMajor] [text "species major"]
+          , button [onClick <| ChangeDisplayMethod GenerationMajor, dmSelected GenerationMajor] [text "generation major"]
+          , button [onClick <| ChangeDisplayMethod UndefinedDisplayMethod, dmSelected UndefinedDisplayMethod] [text "undefined display method"]
           ]
   in div [Attributes.class "run-query-container"]
-       [ orderByOriginalFitness
+       [ displayMethod
+       , orderByOriginalFitness
        , queryButton
        ]
 
