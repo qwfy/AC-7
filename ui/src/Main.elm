@@ -8,9 +8,12 @@ import Http
 import Url.Builder
 
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Wire.Run
 import Wire.RunInfo
 import Wire.Genome
+import Wire.GenerationMajor
+import Wire.SpeciesMajor
 
 port flushGenomeGraphs : String -> Cmd msg
 
@@ -64,6 +67,11 @@ type DisplayMethod
   | GenerationMajor -- collect the same generation together, this shows the different species in a single generation
   | UndefinedDisplayMethod
 
+type QueryResult
+  = QR_SpeciesMajor (List Wire.SpeciesMajor.Species)
+  | QR_GenerationMajor (List Wire.GenerationMajor.Generation)
+  | QR_UndefinedDisplayMethod (List Wire.Genome.T)
+
 type Order = Asc | Desc | UndefinedOrder
 
 type alias RunId = String
@@ -81,7 +89,7 @@ type Msg
   | SelectSpecies (Select SpeciesSn)
   | SelectGeneration (Select GenerationSn)
   | LoadQuery
-  | LoadedQuery (Result Http.Error (List Wire.Genome.T))
+  | LoadedQuery (Result Http.Error QueryResult)
   | ChangeOriginalFitnessOrder Order
   | ChangeDisplayMethod DisplayMethod
 
@@ -156,25 +164,41 @@ update msg model =
         Just query ->
           let speciesSns = extractSelected query.speciesSns
               generationSns = extractSelected query.generationSns
-              orderByOriginalFitness = case query.orderByOriginalFitness of
-                UndefinedOrder -> []
-                Asc -> [Url.Builder.string "order" "original_fitness.asc"]
-                Desc -> [Url.Builder.string "order" "original_fitness.desc"]
-              cmd = Http.get
-                { url = makeUrl ["population"] <|
-                          [ Url.Builder.string "run_id" ("eq." ++ query.runId)
-                          , Url.Builder.string "generation_sn" <| pgRestInInts generationSns
-                          , Url.Builder.string "species_sn" <| pgRestInInts speciesSns
-                          ] ++ orderByOriginalFitness
-                , expect = Http.expectJson LoadedQuery (Decode.list Wire.Genome.decodeT)
-                }
+              cmd = case query.displayMethod of
+                UndefinedDisplayMethod ->
+                  let orderByOriginalFitness = case query.orderByOriginalFitness of
+                        UndefinedOrder -> []
+                        Asc -> [Url.Builder.string "order" "original_fitness.asc"]
+                        Desc -> [Url.Builder.string "order" "original_fitness.desc"]
+                  in Http.get
+                       { url = makeUrl ["population"] <|
+                                 [ Url.Builder.string "run_id" ("eq." ++ query.runId)
+                                 , Url.Builder.string "generation_sn" <| pgRestInInts generationSns
+                                 , Url.Builder.string "species_sn" <| pgRestInInts speciesSns
+                                 ] ++ orderByOriginalFitness
+                       , expect = Http.expectJson LoadedQuery (Decode.map QR_UndefinedDisplayMethod <| Decode.list Wire.Genome.decodeT)
+                       }
+                GenerationMajor ->
+                  let decoder = Decode.map QR_GenerationMajor (Decode.list Wire.GenerationMajor.decodeGeneration)
+                  in requestMajoredQuery query speciesSns generationSns "population_generation_major" decoder
+                SpeciesMajor ->
+                  let decoder = Decode.map QR_SpeciesMajor (Decode.list Wire.SpeciesMajor.decodeSpecies)
+                  in requestMajoredQuery query speciesSns generationSns "population_species_major" decoder
           in (model, cmd)
     LoadedQuery queryRes ->
       case queryRes of
         Err err -> ({model|error=HttpError err}, Cmd.none)
-        Ok genomes ->
-          let graphString = String.concat <| List.map (\x -> x.graph) genomes
-          in ({model|genomes=genomes}, flushGenomeGraphs graphString)
+        Ok res ->
+          case res of
+            QR_UndefinedDisplayMethod genomes ->
+              let graphString = String.concat <| List.map (\x -> x.graph) genomes
+              in ({model|genomes=genomes}, flushGenomeGraphs graphString)
+            QR_GenerationMajor _ ->
+              -- TODO @incomplete: finish this
+              (model, Cmd.none)
+            QR_SpeciesMajor _ ->
+              -- TODO @incomplete: finish this
+              (model, Cmd.none)
     ChangeOriginalFitnessOrder order ->
       case model.query of
         Nothing -> (model, Cmd.none)
@@ -348,3 +372,21 @@ extractSelected selections =
   in if List.isEmpty allSelected
      then List.map unwrapSelection selections
      else allSelected
+
+
+requestMajoredQuery : Query -> List SpeciesSn -> List GenerationSn -> String -> Decode.Decoder QueryResult -> Cmd Msg
+requestMajoredQuery query speciesSns generationSns procedureName decoder =
+  let order_method = case query.orderByOriginalFitness of
+        Asc -> "asc"
+        Desc -> "desc"
+        UndefinedOrder -> "undefined_order"
+  in Http.post
+   { url = makeUrl ["rpc", procedureName] []
+   , expect = Http.expectJson LoadedQuery decoder
+   , body = Http.jsonBody <| Encode.object
+       [ ("_run_id", Encode.string query.runId)
+       , ("_species_sns", Encode.list Encode.int speciesSns)
+       , ("_generation_sns", Encode.list Encode.int generationSns)
+       , ("_order_method", Encode.string order_method)
+       ]
+   }

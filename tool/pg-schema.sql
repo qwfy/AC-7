@@ -169,6 +169,116 @@ SET row_security = off;
 COMMENT ON DATABASE "postgres" IS 'default administrative connection database';
 
 
+--
+-- Name: population_generation_major("text", integer[], integer[], "text"); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION "public"."population_generation_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") RETURNS TABLE("run_id_" "text", "generation_sn_" integer, "species_" "jsonb"[])
+    LANGUAGE "plpgsql"
+    AS $_$
+declare
+  order_clause text := null;
+begin
+  order_clause := case lower(_order_method)
+                    when 'undefined_order' then ''
+                    when 'asc' then $$ order by pop.genome -> 'original_fitness' asc $$
+                    when 'desc' then $$ order by pop.genome -> 'original_fitness' desc $$
+    end;
+  if order_clause is null
+  then
+    raise exception 'Bad order method: `%`', _order_method;
+  end if;
+
+  return query execute format($$
+    select groupped.run_id,
+           groupped.generation_sn,
+           array_agg(groupped.genomes_with_species_sn) as genomes_of_generation
+    from (select pop.run_id,
+                 pop.generation_sn,
+                 jsonb_build_object(
+                     'species_sn', pop.species_sn,
+                     'genomes', array_agg(pop.genome %s)) as genomes_with_species_sn
+          from (select run_id,
+                       generation_sn,
+                       species_sn,
+                       jsonb_build_object(
+                           'run_id', run_id,
+                           'generation_sn', generation_sn,
+                           'species_sn', species_sn,
+                           'genome_id', genome_id,
+                           'original_fitness', original_fitness,
+                           'graph', graph) as genome
+                from population
+                where run_id = $1
+                  and species_sn = any($2)
+                  and generation_sn = any($3)
+               ) as pop
+          group by (pop.run_id, pop.generation_sn, pop.species_sn)
+         ) as groupped
+    group by (groupped.run_id, groupped.generation_sn);
+  $$, order_clause)
+  using _run_id, _species_sns, _generation_sns;
+end;
+$_$;
+
+
+ALTER FUNCTION "public"."population_generation_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") OWNER TO "postgres";
+
+--
+-- Name: population_species_major("text", integer[], integer[], "text"); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION "public"."population_species_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") RETURNS TABLE("run_id_" "text", "species_sn_" integer, "generations_" "jsonb"[])
+    LANGUAGE "plpgsql"
+    AS $_$
+declare
+  order_clause text := null;
+begin
+  order_clause := case lower(_order_method)
+                    when 'undefined_order' then ''
+                    when 'asc' then $$ order by pop.genome -> 'original_fitness' asc $$
+                    when 'desc' then $$ order by pop.genome -> 'original_fitness' desc $$
+    end;
+  if order_clause is null
+  then
+    raise exception 'Bad order method: `%`', _order_method;
+  end if;
+  
+  return query execute format($$
+    select groupped.run_id,
+           groupped.species_sn,
+           array_agg(groupped.genomes_with_generation_sn) as genomes_of_species
+    from (select pop.run_id,
+                 pop.species_sn,
+                 jsonb_build_object(
+                     'generation_sn', pop.species_sn,
+                     'genomes', array_agg(pop.genome %s)) as genomes_with_generation_sn
+          from (select run_id,
+                       generation_sn,
+                       species_sn,
+                       jsonb_build_object(
+                           'run_id', run_id,
+                           'generation_sn', generation_sn,
+                           'species_sn', species_sn,
+                           'genome_id', genome_id,
+                           'original_fitness', original_fitness,
+                           'graph', graph) as genome
+                from population
+                where run_id = $1
+                  and species_sn = any($2)
+                  and generation_sn = any($3)
+               ) as pop
+          group by (pop.run_id, pop.generation_sn, pop.species_sn)
+         ) as groupped
+    group by (groupped.run_id, groupped.species_sn);
+  $$, order_clause)
+  using _run_id, _species_sns, _generation_sns;
+end;
+$_$;
+
+
+ALTER FUNCTION "public"."population_species_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
