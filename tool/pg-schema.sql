@@ -173,7 +173,7 @@ COMMENT ON DATABASE "postgres" IS 'default administrative connection database';
 -- Name: population_generation_major("text", integer[], integer[], "text"); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION "public"."population_generation_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") RETURNS TABLE("run_id_" "text", "generation_sn_" integer, "species_" "jsonb"[])
+CREATE FUNCTION "public"."population_generation_major"("_run_id" "text", "_generation_sns" integer[], "_species_sns" integer[], "_order_method" "text") RETURNS TABLE("generation_sn_" integer, "species_" "jsonb"[])
     LANGUAGE "plpgsql"
     AS $_$
 declare
@@ -181,8 +181,8 @@ declare
 begin
   order_clause := case lower(_order_method)
                     when 'undefined_order' then ''
-                    when 'asc' then $$ order by pop.genome -> 'original_fitness' asc $$
-                    when 'desc' then $$ order by pop.genome -> 'original_fitness' desc $$
+                    when 'asc' then $$ order by pop.one_genome -> 'original_fitness' asc $$
+                    when 'desc' then $$ order by pop.one_genome -> 'original_fitness' desc $$
     end;
   if order_clause is null
   then
@@ -190,16 +190,14 @@ begin
   end if;
 
   return query execute format($$
-    select groupped.run_id,
-           groupped.generation_sn,
-           array_agg(groupped.genomes_with_species_sn) as genomes_of_generation
-    from (select pop.run_id,
-                 pop.generation_sn,
+    select groupped.generation_sn,
+           array_agg(groupped.one_species order by one_species->'species_sn' asc
+                    ) as one_generation
+    from (select pop.generation_sn,
                  jsonb_build_object(
                      'species_sn', pop.species_sn,
-                     'genomes', array_agg(pop.genome %s)) as genomes_with_species_sn
-          from (select run_id,
-                       generation_sn,
+                     'genomes', array_agg(pop.one_genome %s)) as one_species
+          from (select generation_sn,
                        species_sn,
                        jsonb_build_object(
                            'run_id', run_id,
@@ -207,15 +205,16 @@ begin
                            'species_sn', species_sn,
                            'genome_id', genome_id,
                            'original_fitness', original_fitness,
-                           'graph', graph) as genome
+                           'graph', graph) as one_genome
                 from population
                 where run_id = $1
                   and species_sn = any($2)
                   and generation_sn = any($3)
                ) as pop
-          group by (pop.run_id, pop.generation_sn, pop.species_sn)
+          group by (pop.generation_sn, pop.species_sn)
          ) as groupped
-    group by (groupped.run_id, groupped.generation_sn);
+    group by groupped.generation_sn
+    order by groupped.generation_sn asc;
   $$, order_clause)
   using _run_id, _species_sns, _generation_sns;
 end;

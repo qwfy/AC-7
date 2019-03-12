@@ -17,14 +17,12 @@ decodeSpecies =
         |> Json.Decode.Pipeline.required "genomes" (Json.Decode.list Wire.Genome.decodeT)
 
 type alias Generation =
-  { run_id : String
-  , generation_sn : Int
+  { generation_sn : Int
   , species: List Species
   }
 
 decodeGeneration : Json.Decode.Decoder Generation
 decodeGeneration =
     Json.Decode.succeed Generation
-        |> Json.Decode.Pipeline.required "run_id_" (Json.Decode.string)
         |> Json.Decode.Pipeline.required "generation_sn_" (Json.Decode.int)
         |> Json.Decode.Pipeline.required "species_" (Json.Decode.list decodeSpecies)
