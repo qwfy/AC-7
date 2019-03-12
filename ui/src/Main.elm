@@ -193,9 +193,8 @@ update msg model =
             QR_UndefinedDisplayMethod genomes ->
               let graphString = String.concat <| List.map (\x -> x.graph) genomes
               in ({model|genomes=genomes}, flushGenomeGraphs graphString)
-            QR_GenerationMajor _ ->
-              -- TODO @incomplete: finish this
-              (model, Cmd.none)
+            QR_GenerationMajor gm ->
+              (model, flushGenomeGraphs <| strViewGenerationMajor gm)
             QR_SpeciesMajor _ ->
               -- TODO @incomplete: finish this
               (model, Cmd.none)
@@ -390,3 +389,30 @@ requestMajoredQuery query speciesSns generationSns procedureName decoder =
        , ("_order_method", Encode.string order_method)
        ]
    }
+
+
+strViewGenome : Wire.Genome.T -> String
+strViewGenome genome =
+  genome.graph
+
+strViewGenerationMajor : List Wire.GenerationMajor.Generation -> String
+strViewGenerationMajor generations =
+  let strViewGeneration generation =
+        String.concat
+          [ "<div class='major-container-1'>"
+          , String.concat ["<h2>generation ", String.fromInt generation.generation_sn, "</h2>"]
+          , String.concat <| List.map strViewSpecies generation.species
+          , "</div>"
+          ]
+      strViewSpecies species =
+        String.concat
+          [ "<div class='major-container-2'>"
+          , String.concat ["<h2>species ", String.fromInt species.species_sn, "</h2>"]
+          , String.concat <| List.map strViewGenome species.genomes
+          , "</div>"
+          ]
+  in String.concat
+       [ "<div class='major-container-0'>"
+       , String.concat <| List.map strViewGeneration generations
+       , "</div>"
+       ]
