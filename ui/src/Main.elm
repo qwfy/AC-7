@@ -16,6 +16,7 @@ import Wire.GenerationMajor
 import Wire.SpeciesMajor
 
 port flushGenomeGraphs : String -> Cmd msg
+port speciesFitnessOverGeneration : String -> Cmd msg
 
 main =
   Browser.element

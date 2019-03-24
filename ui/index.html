@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>AC-7 Explorer</title>
 
-  <script src="/js/main.js"></script>
+  <script src="/dist/app.bundle.js"></script>
   <style>
     button:focus {
       outline: none;
@@ -66,8 +66,8 @@
       border: 1px dotted grey;
     }
     .major-container-1 {
-      display: flex;
-      flex-direction: row;
+      /* display: flex; */
+      /* flex-direction: row; */
     }
     .major-container-0 {
       margin-top: 0.5em;
@@ -81,18 +81,9 @@
 
 <body>
 <div id="app"></div>
+<div id="plot-container">
+  <div id="species-fitness-over-generation"></div>
+</div>
 <div id="genome-graph-container"></div>
-<script>
-  const app = Elm.Main.init({
-    node: document.getElementById("app"),
-    // This argument is useless, it's there to satisfy elm's requirement.
-    flags: ""
-  });
-
-  app.ports.flushGenomeGraphs.subscribe(function(graph) {
-    console.log(graph);
-    document.getElementById("genome-graph-container").innerHTML = graph;
-  });
-</script>
 </body>
 </html>
