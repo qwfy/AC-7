@@ -15,10 +15,11 @@ services:
       - POSTGRES_PASSWORD=atreehasmanyleafs
       - PGDATA=/pg-data
     volumes:
-      - "./pg-data:/pg-data"
-      - "./postgresql.conf:/pg-data/postgresql.conf"
+      - "./run/pg-data:/pg-data"
+      - "./pg/postgresql.conf:/pg-data/postgresql.conf"
     networks:
       - ac7_net
+    restart: "always"
 
 
   pgrest:
@@ -34,18 +35,4 @@ services:
       - pg
     networks:
       - ac7_net
-
-  server:
-    build:
-      context: server-docker
-      args:
-        ARG_UID: ${ARG_UID}
-        ARG_GID: ${ARG_GID}
-    depends_on:
-      - pgrest
-    ports:
-      - 8080:8080
-    volumes:
-      - "./:/srv/http"
-    networks:
-      - ac7_net
+    restart: "always"
