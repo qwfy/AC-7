@@ -7,3 +7,11 @@ NEAT.cabal
 /pg-data/
 /ui/elm-stuff
 /ui/elm-home
+
+
+#Added by cargo
+#
+#already existing elements are commented out
+
+/target
+**/*.rs.bk
