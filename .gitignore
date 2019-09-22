@@ -1,17 +1,10 @@
-*~
 /**/.idea
-/.stack-work/
-NEAT.cabal
-/try.hs
-/visualization/
-/pg-data/
+/hs/.stack-work
+/hs/NEAT.cabal
+/hs/try.hs
+/run/pg-data
+
+/rs/target
+/rs/**/*.rs.bk
+
 /ui/elm-stuff
-/ui/elm-home
-
-
-#Added by cargo
-#
-#already existing elements are commented out
-
-/target
-**/*.rs.bk
