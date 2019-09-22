@@ -1,5 +1,5 @@
 [package]
-name = "AC-7"
+name = "AC7"
 version = "0.1.0"
 authors = ["Incomplete <incomplete@aixon.co>"]
 edition = "2018"
