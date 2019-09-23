@@ -16,7 +16,7 @@ fn main() {
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("neat") {
         let generation = matches.value_of("generation").unwrap();
-        let num_generations = i32::from_str(generation).unwrap();
+        let num_generations = u32::from_str(generation).unwrap();
         ac7::neat::simulate(num_generations);
     } else {
         println!("Bad command");
