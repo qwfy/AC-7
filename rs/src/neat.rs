@@ -1,16 +1,19 @@
-use std;
-use std::vec::Vec;
-use std::collections::HashMap;
-use uuid::Uuid;
-use rand::{self, Rng, distributions::{Distribution, Uniform}};
-use rand::seq::SliceRandom;
 use log::{info, trace, warn};
+use rand::seq::SliceRandom;
+use rand::{
+    self,
+    distributions::{Distribution, Uniform},
+    Rng,
+};
+use std;
+use std::collections::HashMap;
+use std::vec::Vec;
+use uuid::Uuid;
 
 pub struct Param {
     pub num_generations: u32,
-    pub compatability_threshold: f32
+    pub compatability_threshold: f32,
 }
-
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 enum NodeKind {
@@ -34,7 +37,7 @@ impl Node {
         Node {
             node_id: NodeId(Uuid::new_v4()),
             kind: kind,
-            bias: bias_dist.sample(rng)
+            bias: bias_dist.sample(rng),
         }
     }
 }
@@ -65,7 +68,6 @@ struct Genome {
     fitness: f32,
 }
 
-
 // Species.
 // Since the word "species" is both the signular and the plural form,
 // it can cause some confusion, use the word "group" instead.
@@ -78,7 +80,6 @@ struct Group {
     group_sn: GroupSn,
     genomes: Genomes,
 }
-
 
 struct GenerationSn(pub u32);
 
@@ -101,9 +102,8 @@ type Groups = HashMap<GroupSn, Group>;
 /// A `Generation` is a collection of `Group`s
 struct Generation {
     generation_sn: GenerationSn,
-    groups: Groups
+    groups: Groups,
 }
-
 
 struct InnovationNumberRegistry {
     // the next available innovation number
@@ -115,7 +115,7 @@ impl InnovationNumberRegistry {
     fn new() -> InnovationNumberRegistry {
         InnovationNumberRegistry {
             next: 0,
-            registry: HashMap::new()
+            registry: HashMap::new(),
         }
     }
 
@@ -128,16 +128,18 @@ impl InnovationNumberRegistry {
                 self.registry.insert(key, innov);
                 innov
             }
-            Some(x) => *x
+            Some(x) => *x,
         }
     }
-
 }
 
-
 fn create_initial_generation<D: Distribution<f32>, R: Rng>(
-    num_genomes: i32, num_inputs: i32, num_outputs: i32,
-    weight_dist: &D, bias_dist: &D, rng: &mut R
+    num_genomes: i32,
+    num_inputs: i32,
+    num_outputs: i32,
+    weight_dist: &D,
+    bias_dist: &D,
+    rng: &mut R,
 ) -> Generation {
     let generation_sn = GenerationSn(0);
     info!("creating generation {}", generation_sn);
@@ -170,7 +172,8 @@ fn create_initial_generation<D: Distribution<f32>, R: Rng>(
                     weight: weight_dist.sample(rng),
                     // TODO @incomplete: make this probability configurable
                     enabled: rng.gen_bool(0.9),
-                    innovation_number: innovation_number_registry.get(in_node.node_id, out_node.node_id),
+                    innovation_number: innovation_number_registry
+                        .get(in_node.node_id, out_node.node_id),
                 };
                 assert!(edges.insert(edge.edge_id, edge).is_none());
             }
@@ -182,7 +185,7 @@ fn create_initial_generation<D: Distribution<f32>, R: Rng>(
             nodes: nodes,
             edges: edges,
             // TODO @incomplete: calculate fitness
-            fitness: 0.0
+            fitness: 0.0,
         };
         // println!("length of genome: {} nodes, {} edges", genome.nodes.len(), genome.edges.len());
         assert!(genomes.insert(genome.genome_id, genome).is_none());
@@ -190,15 +193,15 @@ fn create_initial_generation<D: Distribution<f32>, R: Rng>(
 
     let group0 = Group {
         group_sn: GroupSn(0),
-        genomes: genomes
+        genomes: genomes,
     };
-    
+
     let mut groups = HashMap::new();
     groups.insert(group0.group_sn, group0);
 
     Generation {
         generation_sn: generation_sn,
-        groups: groups
+        groups: groups,
     }
 }
 
@@ -216,28 +219,25 @@ pub fn simulate(param: &Param) {
 }
 
 // TODO @incomplete: this may or may not be stable
-fn choose_representative(genomes: &Genomes) -> Option<&Genome>
-{
+fn choose_representative(genomes: &Genomes) -> Option<&Genome> {
     let mut all_genomes: Vec<&Genome> = genomes.values().collect();
     match all_genomes.get(0) {
         None => None,
-        Some(x) => Some(x)
+        Some(x) => Some(x),
     }
 }
 
-fn speciation(groups: &Groups, compatability_threshold: f32)
-    -> HashMap<GroupSn, Vec<&Genome>>
-{
-
+fn speciation(groups: &Groups, compatability_threshold: f32) -> HashMap<GroupSn, Vec<&Genome>> {
     // representatives of each group
-    let mut representatives: HashMap<GroupSn, &Genome>
-        = groups.iter().filter_map(
-        |(group_sn, group)|
-        match choose_representative(&group.genomes) {
-            None => None,
-            Some(genome) => Some((group_sn.clone(), genome))
-        }
-    ).collect();
+    let mut representatives: HashMap<GroupSn, &Genome> = groups
+        .iter()
+        .filter_map(
+            |(group_sn, group)| match choose_representative(&group.genomes) {
+                None => None,
+                Some(genome) => Some((group_sn.clone(), genome)),
+            },
+        )
+        .collect();
 
     // initialize the new groups with the representative
     let mut new_groups: HashMap<GroupSn, Vec<&Genome>> = HashMap::new();
@@ -249,14 +249,13 @@ fn speciation(groups: &Groups, compatability_threshold: f32)
     // iterate over each genome in the groups
     for group in groups.values() {
         for genome in group.genomes.values() {
-
             let mut processed = false;
             for (group_sn, repre) in representatives.iter() {
                 let distance = calc_distance(genome, repre);
                 if distance <= compatability_threshold {
                     new_groups.get_mut(&group_sn).unwrap().push(genome);
                     processed = true;
-                    break
+                    break;
                 }
             }
             if !processed {
@@ -264,7 +263,6 @@ fn speciation(groups: &Groups, compatability_threshold: f32)
                 representatives.insert(next_group_sn, &genome);
                 new_groups.insert(next_group_sn, vec![&genome]);
             }
-
         }
     }
 
@@ -294,7 +292,8 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
         fitnesses.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
 
         let pop_size = group_sizes.get(&group_sn).unwrap();
-        let most_fit_ids: Vec<&GenomeId> = fitnesses.iter()
+        let most_fit_ids: Vec<&GenomeId> = fitnesses
+            .iter()
             .take(*pop_size)
             .map(|(genome_id, _fit)| genome_id)
             .collect();
@@ -311,18 +310,20 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
             new_genomes.insert(child.genome_id, child);
         }
 
-        new_groups.insert(group_sn, Group {
-            group_sn: group_sn,
-            genomes: new_genomes
-        });
+        new_groups.insert(
+            group_sn,
+            Group {
+                group_sn: group_sn,
+                genomes: new_genomes,
+            },
+        );
     }
 
     Generation {
         generation_sn: old_gen.generation_sn.succ(),
-        groups: new_groups
+        groups: new_groups,
     }
 }
-
 
 fn mate(m: &Genome, f: &Genome) -> Genome {
     unimplemented!();
@@ -337,9 +338,9 @@ fn find_genome_by_id<'a>(genome_id: &GenomeId, groups: &'a Groups) -> Option<&'a
     for group in groups.values() {
         for genome in group.genomes.values() {
             if &genome.genome_id == genome_id {
-                return Some(genome)
+                return Some(genome);
             }
         }
     }
-    return None
+    return None;
 }
