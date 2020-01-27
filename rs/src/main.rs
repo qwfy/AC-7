@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand, value_t_or_exit};
 use fern;
 use log;
 use chrono;
@@ -11,18 +11,26 @@ fn main() {
         .author("Incomplete <incomplete@aixon.co>")
         .subcommand(SubCommand::with_name("neat")
             .about("The NEAT algorithm")
-            .arg(Arg::with_name("generation")
+            .arg(Arg::with_name("num-generations")
                 .short("g")
-                .long("generation")
+                .long("num-generations")
                 .required(true)
-                .takes_value(true)
-                .help("number of generates to simulate")))
+                .takes_value(true))
+            .arg(Arg::with_name("compatability-threshold")
+                .short("c")
+                .long("compatability-threshold")
+                .required(true)
+                .takes_value(true))
+            )
         .get_matches();
     setup_logger().unwrap();
     if let Some(matches) = matches.subcommand_matches("neat") {
-        let generation = matches.value_of("generation").unwrap();
-        let num_generations = u32::from_str(generation).unwrap();
-        ac7::neat::simulate(num_generations);
+        let num_generations = value_t_or_exit!(matches, "num-generations", u32);
+        let compatability_threshold = value_t_or_exit!(matches, "compatability-threshold", f32);
+        ac7::neat::simulate(&ac7::neat::Param {
+            num_generations,
+            compatability_threshold,
+        });
     } else {
         println!("Bad command");
     }
