@@ -370,28 +370,38 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
 
     let speciated = speciate(&old_gen.groups, &param);
 
-    let mut fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = unimplemented!();
+    let mut fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = speciated.iter()
+        .map(|(group_sn, genomes)| {
+            // FIXME: the cast is unsafe
+            let size = genomes.len() as f64;
+            let adjusted: Vec<(GenomeId, f64)> = genomes.iter()
+                .map(|&g| (g.genome_id.clone(), g.fitness / size))
+                .collect();
+            (*group_sn, adjusted)
+        })
+        .collect();
+
     let group_sizes: HashMap<GroupSn, usize> = unimplemented!();
 
     let mut new_groups = HashMap::new();
 
     // create one group at a time
     for (group_sn, genomes) in speciated {
-        let mut fits = fits[group_sn];
+        let mut fits = fits[&group_sn];
         // TODO @incomplete: check for NaN in fits
         fits.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
 
-        let pop_size = group_sizes.get(&group_sn).unwrap();
+        let pop_size = group_sizes[&group_sn];
         let most_fit_ids: Vec<&GenomeId> = fits
             .iter()
-            .take(*pop_size)
+            .take(pop_size)
             .map(|(genome_id, _fit)| genome_id)
             .collect();
 
         // new genomes of this group
         let mut new_genomes = HashMap::new();
         let mut rng = rand::thread_rng();
-        for _ in 0..*pop_size {
+        for _ in 0..pop_size {
             let m = most_fit_ids.choose(&mut rng).unwrap();
             let f = most_fit_ids.choose(&mut rng).unwrap();
             let m = find_genome_by_id(m, &old_gen.groups).unwrap();
