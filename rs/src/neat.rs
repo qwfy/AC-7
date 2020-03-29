@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::iter::Sum;
 use std::vec::Vec;
 
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use ndarray::Array;
 use ordered_map::OrderedMap;
 use rand::{
@@ -100,7 +100,7 @@ struct Genome {
 // Species.
 // Since the word "species" is both the singular and the plural form,
 // it can cause some confusion, use the word "group" instead.
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 struct GroupSn(pub i32);
 
 type Genomes = HashMap<GenomeId, Genome>;
@@ -164,7 +164,7 @@ impl InnovationNumberRegistry {
 }
 
 fn create_initial_generation<D: Distribution<f64>, R: Rng>(
-    num_genomes: i32,
+    num_genomes: u32,
     num_inputs: i32,
     num_outputs: i32,
     weight_dist: &D,
@@ -210,12 +210,12 @@ fn create_initial_generation<D: Distribution<f64>, R: Rng>(
         }
 
         // finally, put them together
+        let fitness = calculate_fitness(&nodes, &edges);
         let genome = Genome {
             genome_id: GenomeId(Uuid::new_v4()),
             nodes: nodes,
             edges: edges,
-            // TODO @incomplete: calculate fitness
-            fitness: 0.0,
+            fitness,
         };
         // println!("length of genome: {} nodes, {} edges", genome.nodes.len(), genome.edges.len());
         assert!(genomes.insert(genome.genome_id, genome).is_none());
@@ -241,7 +241,7 @@ pub fn simulate(param: &Param) {
     let weight_dist = Uniform::new(0.0, 1.0);
     let bias_dist = Uniform::new(0.0, 1.0);
 
-    let mut gen = create_initial_generation(10, 3, 2, &weight_dist, &bias_dist, &mut rng);
+    let mut gen = create_initial_generation(param.population_size, 3, 2, &weight_dist, &bias_dist, &mut rng);
     for _ in 1..param.num_generations {
         gen = evolve(&gen, param);
         store_gen(&gen);
@@ -278,6 +278,7 @@ fn speciate<'a, 'b>(groups: &'a Groups, param: &'b Param) -> HashMap<GroupSn, Ve
 
     // iterate over each genome in the groups
     for group in groups.values() {
+        info!("processing old group: {}, #genomes: {}", group.group_sn.0, group.genomes.len());
         for genome in group.genomes.values() {
             let mut processed = false;
             for (group_sn, repre) in representatives.iter() {
@@ -336,7 +337,8 @@ fn calc_compatibility(x: &Genome, y: &Genome, param: &Param) -> f64 {
                     Some(x) => x
                 };
                 // FIXME: as f64 may truncate
-                return (param.c_excess * excess as f64 + param.c_disjoint * disjoint as f64) / n as f64 + param.c_common * avg_w;
+                let compat = (param.c_excess * excess as f64 + param.c_disjoint * disjoint as f64) / n as f64 + param.c_common * avg_w;
+                return compat;
             }
             (Some(_), None) => {
                 excess += xs_len - xs_consumed;
@@ -347,9 +349,13 @@ fn calc_compatibility(x: &Genome, y: &Genome, param: &Param) -> f64 {
                 y = None;
             }
             (Some(Edge { innovation_number: innov_x, weight: weight_x, .. }),
-                Some(Edge { innovation_number: innov_y, weight: weight_y, .. })) => {
+             Some(Edge { innovation_number: innov_y, weight: weight_y, .. })) => {
                 if innov_x == innov_y {
                     match_w.push((weight_x + weight_y) / 2.0);
+                    x = xs.next();
+                    y = ys.next();
+                    if x.is_some() { xs_consumed += 1; }
+                    if y.is_none() { ys_consumed += 1; };
                 } else if innov_x < innov_y {
                     disjoint += 1;
                     x = xs.next();
@@ -357,7 +363,7 @@ fn calc_compatibility(x: &Genome, y: &Genome, param: &Param) -> f64 {
                 } else if innov_y < innov_x {
                     disjoint += 1;
                     y = ys.next();
-                    if y.is_none() { ys_consumed += 1 };
+                    if y.is_none() { ys_consumed += 1; };
                 } else {
                     assert!(false)
                 }
@@ -371,6 +377,7 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
     info!("evolving generation {}", old_gen.generation_sn);
 
     let speciated = speciate(&old_gen.groups, &param);
+    info!("#species: {}", speciated.len());
 
     let fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = speciated.iter()
         .map(|(group_sn, genomes)| {
@@ -391,25 +398,31 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
                 (*group_sn, sum)
             })
             .collect();
+        debug!("summed_by_group: {:?}", summed_by_group);
 
         let total_sum: f64 = std::iter::Sum::sum(
             summed_by_group.iter()
                 .map(|(_, s)| *s));
+        debug!("total sum: {}", total_sum);
+        assert_ne!(total_sum, 0.0);
 
         summed_by_group.iter()
             .map(|(group_sn, sum)| (*group_sn, f64::ceil(sum / total_sum) as usize))
             .collect()
     };
+    debug!("group_sizes: {:?}", group_sizes);
 
     let mut new_groups = HashMap::new();
 
     // create one group at a time
     for (group_sn, genomes) in speciated {
+        info!("creating group {}", group_sn.0);
         let mut fits = fits[&group_sn].clone();
         // TODO @incomplete: check for NaN in fits
         fits.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
 
         let pop_size = group_sizes[&group_sn];
+        info!("pop size: {}", pop_size);
         let most_fit_ids: Vec<&GenomeId> = fits
             .iter()
             .take(pop_size)
@@ -419,7 +432,7 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
         // new genomes of this group
         let mut new_genomes = HashMap::new();
         let mut rng = rand::thread_rng();
-        for _ in 0..pop_size {
+        for i in 0..pop_size {
             let m = most_fit_ids.choose(&mut rng).unwrap();
             let f = most_fit_ids.choose(&mut rng).unwrap();
             let m = find_genome_by_id(m, &old_gen.groups).unwrap();
@@ -472,11 +485,12 @@ fn mate(x: &Genome, y: &Genome) -> Genome
         match (a_edge, b_edge) {
             (None, None) => {
                 // both exhausted, create the new genome
+                let fitness = calculate_fitness(&nodes, &edges);
                 return Genome {
                     genome_id: GenomeId(Uuid::new_v4()),
                     nodes,
                     edges,
-                    fitness: unimplemented!()
+                    fitness
                 }
             },
             (Some(ae), None) => {
@@ -538,4 +552,8 @@ fn find_genome_by_id<'a>(genome_id: &GenomeId, groups: &'a Groups) -> Option<&'a
         }
     }
     return None;
+}
+
+fn calculate_fitness(nodes: &Nodes, edges: &Edges) -> f64 {
+    1.0
 }

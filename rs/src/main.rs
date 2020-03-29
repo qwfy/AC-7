@@ -13,32 +13,16 @@ fn main() {
         .subcommand(
             SubCommand::with_name("neat")
                 .about("The NEAT algorithm")
-                .arg(
-                    Arg::with_name("num-generations")
-                        .short("g")
-                        .long("num-generations")
-                        .required(true)
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("compatibility-threshold")
-                        .short("c")
-                        .long("compatibility-threshold")
-                        .required(true)
-                        .takes_value(true),
-                ),
         )
         .get_matches();
     setup_logger().unwrap();
     if let Some(matches) = matches.subcommand_matches("neat") {
-        let num_generations = value_t_or_exit!(matches, "num-generations", u32);
-        let compatibility_threshold = value_t_or_exit!(matches, "compatibility-threshold", f64);
         ac7::neat::simulate(&ac7::neat::Param {
-            num_generations,
-            compatibility_threshold,
-            c_disjoint: 0.0,
-            c_excess: 0.0,
-            c_common: 0.0,
+            num_generations: 100,
+            compatibility_threshold: 3.0,
+            c_disjoint: 2.0,
+            c_excess: 3.0,
+            c_common: 4.0,
             population_size: 1000
         });
     } else {
