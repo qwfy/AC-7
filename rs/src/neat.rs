@@ -1,18 +1,24 @@
+use std;
+use std::collections::HashMap;
+use std::vec::Vec;
+
 use log::{info, trace, warn};
-use rand::seq::SliceRandom;
+use ndarray::Array;
+use ordered_map::OrderedMap;
 use rand::{
     self,
     distributions::{Distribution, Uniform},
     Rng,
 };
-use std;
-use std::collections::HashMap;
-use std::vec::Vec;
+use rand::seq::SliceRandom;
 use uuid::Uuid;
 
 pub struct Param {
     pub num_generations: u32,
-    pub compatability_threshold: f32,
+    pub compatibility_threshold: f64,
+    pub c_excess: f64,
+    pub c_disjoint: f64,
+    pub c_common: f64,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -28,12 +34,12 @@ struct NodeId(pub Uuid);
 struct Node {
     node_id: NodeId,
     kind: NodeKind,
-    bias: f32,
+    bias: f64,
 }
 
 impl Node {
     /// Creates a new node with a random bias sampled from `bias_dist`
-    fn new<D: Distribution<f32>, R: Rng>(kind: NodeKind, bias_dist: &D, rng: &mut R) -> Node {
+    fn new<D: Distribution<f64>, R: Rng>(kind: NodeKind, bias_dist: &D, rng: &mut R) -> Node {
         Node {
             node_id: NodeId(Uuid::new_v4()),
             kind: kind,
@@ -50,7 +56,7 @@ struct Edge {
     in_node_id: NodeId,
     out_node_id: NodeId,
     enabled: bool,
-    weight: f32,
+    weight: f64,
     innovation_number: u128,
 }
 
@@ -58,14 +64,14 @@ struct Edge {
 struct GenomeId(pub Uuid);
 
 type Nodes = HashMap<NodeId, Node>;
-type Edges = HashMap<EdgeId, Edge>;
+type Edges = OrderedMap<EdgeId, Edge, u128>;
 
 /// A `Genome` is a collection of `Node`s and `Edge`s
 struct Genome {
     genome_id: GenomeId,
     nodes: Nodes,
     edges: Edges,
-    fitness: f32,
+    fitness: f64,
 }
 
 // Species.
@@ -75,6 +81,7 @@ struct Genome {
 struct GroupSn(pub i32);
 
 type Genomes = HashMap<GenomeId, Genome>;
+
 /// A `Group` is a collection of `Genome`s
 struct Group {
     group_sn: GroupSn,
@@ -133,7 +140,7 @@ impl InnovationNumberRegistry {
     }
 }
 
-fn create_initial_generation<D: Distribution<f32>, R: Rng>(
+fn create_initial_generation<D: Distribution<f64>, R: Rng>(
     num_genomes: i32,
     num_inputs: i32,
     num_outputs: i32,
@@ -158,7 +165,7 @@ fn create_initial_generation<D: Distribution<f32>, R: Rng>(
         }
 
         // then, create the edges
-        let mut edges = HashMap::new();
+        let mut edges = OrderedMap::new(|e: &Edge| e.innovation_number);
         let in_nodes = nodes.values().filter(|n| n.kind == NodeKind::InputNode);
         // the input nodes are fully connected to the output nodes
         // TODO @incomplete: use sparse connection?
@@ -227,7 +234,7 @@ fn choose_representative(genomes: &Genomes) -> Option<&Genome> {
     }
 }
 
-fn speciation(groups: &Groups, compatability_threshold: f32) -> HashMap<GroupSn, Vec<&Genome>> {
+fn speciation<'a, 'b>(groups: &'a Groups, param: &'b Param) -> HashMap<GroupSn, Vec<&'a Genome>> {
     // representatives of each group
     let mut representatives: HashMap<GroupSn, &Genome> = groups
         .iter()
@@ -251,8 +258,8 @@ fn speciation(groups: &Groups, compatability_threshold: f32) -> HashMap<GroupSn,
         for genome in group.genomes.values() {
             let mut processed = false;
             for (group_sn, repre) in representatives.iter() {
-                let distance = calc_distance(genome, repre);
-                if distance <= compatability_threshold {
+                let compatibility = calc_compatibility(genome, repre, param);
+                if compatibility <= param.compatibility_threshold {
                     new_groups.get_mut(&group_sn).unwrap().push(genome);
                     processed = true;
                     break;
@@ -269,18 +276,80 @@ fn speciation(groups: &Groups, compatability_threshold: f32) -> HashMap<GroupSn,
     new_groups
 }
 
-fn calc_distance(x: &Genome, center: &Genome) -> f32 {
-    // TODO @incomplete: implement this
-    0.0
+
+fn calc_compatibility(x: &Genome, y: &Genome, param: &Param) -> f64 {
+    let xs_len = x.edges.len();
+    let ys_len = y.edges.len();
+    let mut xs = x.edges.descending_values().rev();
+    let mut ys = y.edges.descending_values().rev();
+
+    // n, the number of genes in the larger genome, normalizes for genome size
+    // (can be set to 1 if both genomes are small, i.e. consist of fewer than 20 genes).
+    let n = {
+        let n1 = xs_len.max(ys_len);
+        if n1 < 20 {
+            1
+        } else {
+            n1
+        }
+    };
+
+    let mut disjoint: usize = 0;
+    let mut excess: usize = 0;
+    let mut match_w = vec![];
+
+    let mut x = xs.next();
+    let mut y = ys.next();
+    let mut xs_consumed: usize = 0;
+    let mut ys_consumed: usize = 0;
+    if x.is_some() { xs_consumed += 1; }
+    if y.is_some() { ys_consumed += 1; }
+    loop {
+        match (x, y) {
+            (None, None) => {
+                // both consumed, calculate the compatibility
+                let avg_w = match Array::from(match_w).mean() {
+                    None => 0.0,
+                    Some(x) => x
+                };
+                // FIXME: as f64 may truncate
+                return (param.c_excess * excess as f64 + param.c_disjoint * disjoint as f64) / n as f64 + param.c_common * avg_w;
+            }
+            (Some(_), None) => {
+                excess += xs_len - xs_consumed;
+                x = None;
+            }
+            (None, Some(_)) => {
+                excess += ys_len - ys_consumed;
+                y = None;
+            }
+            (Some(Edge { innovation_number: innov_x, weight: weight_x, .. }),
+                Some(Edge { innovation_number: innov_y, weight: weight_y, .. })) => {
+                if innov_x == innov_y {
+                    match_w.push((weight_x + weight_y) / 2.0);
+                } else if innov_x < innov_y {
+                    disjoint += 1;
+                    x = xs.next();
+                    if x.is_some() { xs_consumed += 1; }
+                } else if innov_y < innov_x {
+                    disjoint += 1;
+                    y = ys.next();
+                    if y.is_none() { ys_consumed += 1 };
+                } else {
+                    assert!(false)
+                }
+            }
+        }
+    }
 }
 
 /// Creates a new generation from the old generation
 fn evolve(old_gen: &Generation, param: &Param) -> Generation {
     info!("evolving generation {}", old_gen.generation_sn);
 
-    let speciated = speciation(&old_gen.groups, param.compatability_threshold);
+    let speciated = speciation(&old_gen.groups, &param);
 
-    let mut adjusted_fitnesses: HashMap<GroupSn, Vec<(GenomeId, f32)>> = unimplemented!();
+    let mut adjusted_fitnesses: HashMap<GroupSn, Vec<(GenomeId, f64)>> = unimplemented!();
     let group_sizes: HashMap<GroupSn, usize> = unimplemented!();
 
     let mut new_groups = HashMap::new();

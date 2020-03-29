@@ -1,8 +1,9 @@
+use std::str::FromStr;
+
 use chrono;
-use clap::{value_t_or_exit, App, Arg, SubCommand};
+use clap::{App, Arg, SubCommand, value_t_or_exit};
 use fern;
 use log;
-use std::str::FromStr;
 
 use ac7;
 
@@ -20,9 +21,9 @@ fn main() {
                         .takes_value(true),
                 )
                 .arg(
-                    Arg::with_name("compatability-threshold")
+                    Arg::with_name("compatibility-threshold")
                         .short("c")
-                        .long("compatability-threshold")
+                        .long("compatibility-threshold")
                         .required(true)
                         .takes_value(true),
                 ),
@@ -31,10 +32,13 @@ fn main() {
     setup_logger().unwrap();
     if let Some(matches) = matches.subcommand_matches("neat") {
         let num_generations = value_t_or_exit!(matches, "num-generations", u32);
-        let compatability_threshold = value_t_or_exit!(matches, "compatability-threshold", f32);
+        let compatibility_threshold = value_t_or_exit!(matches, "compatibility-threshold", f64);
         ac7::neat::simulate(&ac7::neat::Param {
             num_generations,
-            compatability_threshold,
+            compatibility_threshold,
+            c_disjoint: 0.0,
+            c_excess: 0.0,
+            c_common: 0.0,
         });
     } else {
         println!("Bad command");
