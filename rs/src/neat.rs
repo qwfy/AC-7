@@ -34,7 +34,7 @@ struct NodeId(pub Uuid);
 struct Node {
     node_id: NodeId,
     kind: NodeKind,
-    bias: f64,
+    bias: f64
 }
 
 impl Node {
@@ -42,8 +42,16 @@ impl Node {
     fn new<D: Distribution<f64>, R: Rng>(kind: NodeKind, bias_dist: &D, rng: &mut R) -> Node {
         Node {
             node_id: NodeId(Uuid::new_v4()),
-            kind: kind,
-            bias: bias_dist.sample(rng),
+            kind,
+            bias: bias_dist.sample(rng)
+        }
+    }
+
+    fn make_copy(&self) -> Node {
+        Node {
+            node_id: self.node_id.clone(),
+            kind: self.kind.clone(),
+            bias: self.bias.clone()
         }
     }
 }
@@ -58,6 +66,19 @@ struct Edge {
     enabled: bool,
     weight: f64,
     innovation_number: u128,
+}
+
+impl Edge {
+    fn make_copy(&self) -> Edge {
+        Edge {
+            edge_id: self.edge_id.clone(),
+            in_node_id: self.in_node_id.clone(),
+            out_node_id: self.out_node_id.clone(),
+            enabled: self.enabled.clone(),
+            weight: self.weight.clone(),
+            innovation_number: self.innovation_number.clone(),
+        }
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -75,7 +96,7 @@ struct Genome {
 }
 
 // Species.
-// Since the word "species" is both the signular and the plural form,
+// Since the word "species" is both the singular and the plural form,
 // it can cause some confusion, use the word "group" instead.
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 struct GroupSn(pub i32);
@@ -394,8 +415,85 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
     }
 }
 
-fn mate(m: &Genome, f: &Genome) -> Genome {
-    unimplemented!();
+
+
+fn mate(x: &Genome, y: &Genome) -> Genome
+{
+    // if there is a winner, it's a
+    let (a, b, is_tie) =
+        if x.fitness > y.fitness { (x, y, false) }
+        else if x.fitness < y.fitness { (y, x, false) }
+        else { (x, y, true) };
+
+    let mut nodes = HashMap::new();
+    let mut edges = OrderedMap::new(|e: &Edge| e.innovation_number);
+
+    let mut a_edges = a.edges.descending_values().rev();
+    let mut b_edges = b.edges.descending_values().rev();
+    let mut a_edge = a_edges.next();
+    let mut b_edge = b_edges.next();
+
+    let insert_edge = |ns: &mut Nodes, es: &mut Edges, all_nodes: &Nodes, e: &Edge|
+        {
+            ns.insert(e.in_node_id, all_nodes[&e.in_node_id].make_copy());
+            ns.insert(e.out_node_id, all_nodes[&e.out_node_id].make_copy());
+            es.insert(e.edge_id, e.make_copy());
+        };
+
+    loop {
+        match (a_edge, b_edge) {
+            (None, None) => {
+                // both exhausted, create the new genome
+                return Genome {
+                    genome_id: GenomeId(Uuid::new_v4()),
+                    nodes,
+                    edges,
+                    fitness: unimplemented!()
+                }
+            },
+            (Some(ae), None) => {
+                // no matter win or tie, insert ae
+                insert_edge(&mut nodes, &mut edges, &a.nodes, ae);
+                a_edge = a_edges.next();
+            },
+            (None, Some(be)) => {
+                // insert be only on tie
+                if is_tie {
+                    insert_edge(&mut nodes, &mut edges, &b.nodes, be)
+                }
+                b_edge = b_edges.next();
+            },
+            (Some(ae), Some(be)) => {
+                if ae.innovation_number == be.innovation_number {
+                    // insert ae no matter when or tie
+                    // insert be only on tie
+                    insert_edge(&mut nodes, &mut edges, &a.nodes, ae);
+                    if is_tie {
+                        insert_edge(&mut nodes, &mut edges, &b.nodes, be);
+                    }
+                    // advance both, since innovation number is the same
+                    a_edge = a_edges.next();
+                    b_edge = b_edges.next();
+                } else if ae.innovation_number < be.innovation_number {
+                    // insert ae, since it is winner's disjoint
+                    insert_edge(&mut nodes, &mut edges, &a.nodes, ae);
+                    // b is not advanced, waiting for a to catch up
+                    a_edge = a_edges.next();
+                } else if be.innovation_number < ae.innovation_number {
+                    // insert be only on tie, since it is the loser's disjoint
+                    if is_tie {
+                        insert_edge(&mut nodes, &mut edges, &b.nodes, be)
+                    }
+                    // a is not advanced, and not inserted
+                    b_edge = b_edges.next();
+                }
+            },
+
+        }
+    }
+
+
+
 }
 
 fn store_gen(gen: &Generation) {
