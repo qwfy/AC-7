@@ -255,7 +255,7 @@ fn choose_representative(genomes: &Genomes) -> Option<&Genome> {
     }
 }
 
-fn speciation<'a, 'b>(groups: &'a Groups, param: &'b Param) -> HashMap<GroupSn, Vec<&'a Genome>> {
+fn speciate<'a, 'b>(groups: &'a Groups, param: &'b Param) -> HashMap<GroupSn, Vec<&'a Genome>> {
     // representatives of each group
     let mut representatives: HashMap<GroupSn, &Genome> = groups
         .iter()
@@ -368,21 +368,21 @@ fn calc_compatibility(x: &Genome, y: &Genome, param: &Param) -> f64 {
 fn evolve(old_gen: &Generation, param: &Param) -> Generation {
     info!("evolving generation {}", old_gen.generation_sn);
 
-    let speciated = speciation(&old_gen.groups, &param);
+    let speciated = speciate(&old_gen.groups, &param);
 
-    let mut adjusted_fitnesses: HashMap<GroupSn, Vec<(GenomeId, f64)>> = unimplemented!();
+    let mut fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = unimplemented!();
     let group_sizes: HashMap<GroupSn, usize> = unimplemented!();
 
     let mut new_groups = HashMap::new();
 
     // create one group at a time
     for (group_sn, genomes) in speciated {
-        let mut fitnesses = adjusted_fitnesses.get(&group_sn).unwrap();
-        // TODO @incomplete: check for NaN in fitnesses
-        fitnesses.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
+        let mut fits = fits[group_sn];
+        // TODO @incomplete: check for NaN in fits
+        fits.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
 
         let pop_size = group_sizes.get(&group_sn).unwrap();
-        let most_fit_ids: Vec<&GenomeId> = fitnesses
+        let most_fit_ids: Vec<&GenomeId> = fits
             .iter()
             .take(*pop_size)
             .map(|(genome_id, _fit)| genome_id)
@@ -403,7 +403,7 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
         new_groups.insert(
             group_sn,
             Group {
-                group_sn: group_sn,
+                group_sn,
                 genomes: new_genomes,
             },
         );
