@@ -39,6 +39,7 @@ fn main() {
             c_disjoint: 0.0,
             c_excess: 0.0,
             c_common: 0.0,
+            population_size: 1000
         });
     } else {
         println!("Bad command");

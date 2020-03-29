@@ -1,5 +1,6 @@
 use std;
 use std::collections::HashMap;
+use std::iter::Sum;
 use std::vec::Vec;
 
 use log::{info, trace, warn};
@@ -19,6 +20,7 @@ pub struct Param {
     pub c_excess: f64,
     pub c_disjoint: f64,
     pub c_common: f64,
+    pub population_size: u32,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -370,7 +372,7 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
 
     let speciated = speciate(&old_gen.groups, &param);
 
-    let mut fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = speciated.iter()
+    let fits: HashMap<GroupSn, Vec<(GenomeId, f64)>> = speciated.iter()
         .map(|(group_sn, genomes)| {
             // FIXME: the cast is unsafe
             let size = genomes.len() as f64;
@@ -381,13 +383,29 @@ fn evolve(old_gen: &Generation, param: &Param) -> Generation {
         })
         .collect();
 
-    let group_sizes: HashMap<GroupSn, usize> = unimplemented!();
+    let group_sizes: HashMap<GroupSn, usize> = {
+        let summed_by_group: Vec<(GroupSn, f64)> = fits.iter()
+            .map(|(group_sn, id_fits)| {
+                let sum: Vec<f64> = id_fits.iter().map(|(_, fit)| *fit).collect();
+                let sum = Array::from(sum).sum();
+                (*group_sn, sum)
+            })
+            .collect();
+
+        let total_sum: f64 = std::iter::Sum::sum(
+            summed_by_group.iter()
+                .map(|(_, s)| *s));
+
+        summed_by_group.iter()
+            .map(|(group_sn, sum)| (*group_sn, f64::ceil(sum / total_sum) as usize))
+            .collect()
+    };
 
     let mut new_groups = HashMap::new();
 
     // create one group at a time
     for (group_sn, genomes) in speciated {
-        let mut fits = fits[&group_sn];
+        let mut fits = fits[&group_sn].clone();
         // TODO @incomplete: check for NaN in fits
         fits.sort_by(|(_, fit1), (_, fit2)| (-fit1).partial_cmp(&-fit2).unwrap());
 
