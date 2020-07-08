@@ -21,7 +21,11 @@ pub struct Param {
     pub c_excess: f64,
     pub c_disjoint: f64,
     pub c_common: f64,
-    pub population_size: u32,
+    pub initial_population_size: u32,
+    pub new_edge_enable_probability: f64,
+
+    pub num_inputs: u32,
+    pub num_outputs: u32,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]

@@ -18,12 +18,15 @@ fn main() {
     setup_logger().unwrap();
     if let Some(matches) = matches.subcommand_matches("neat") {
         ac7::neat::simulate(&ac7::data::Param {
-            num_generations: 100,
+            num_generations: 2,
             compatibility_threshold: 3.0,
             c_disjoint: 2.0,
             c_excess: 3.0,
             c_common: 4.0,
-            population_size: 1000
+            initial_population_size: 10,
+            new_edge_enable_probability: 0.9,
+            num_inputs: 2,
+            num_outputs: 1,
         });
     } else {
         println!("Bad command");

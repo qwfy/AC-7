@@ -18,48 +18,49 @@ use std::panic::resume_unwind;
 use crate::data::*;
 
 fn create_initial_generation<D: Distribution<f64>, R: Rng>(
-    num_genomes: u32,
-    num_inputs: i32,
-    num_outputs: i32,
+    param: &Param,
+    innovation_number_registry: &mut InnovationNumberRegistry,
     weight_dist: &D,
     bias_dist: &D,
     rng: &mut R,
 ) -> Generation {
     let generation_sn = GenerationSn(0);
     info!("creating generation {}", generation_sn);
+
+    // create the genomes of the single initial species
     let mut genomes = HashMap::new();
-    let mut innovation_number_registry = InnovationNumberRegistry::new();
-    for _ in 0..num_genomes {
+    for _ in 0..param.initial_population_size {
         // first, create the nodes
         let mut nodes = HashMap::new();
-        for _ in 0..num_inputs {
+        for _ in 0..param.num_inputs {
             let node = Node::new(NodeKind::InputNode, bias_dist, rng);
-            assert!(nodes.insert(node.node_id, node).is_none());
+            nodes.insert(node.node_id, node);
         }
-        for _ in 0..num_outputs {
+        for _ in 0..param.num_outputs {
             let node = Node::new(NodeKind::OutputNode, bias_dist, rng);
-            assert!(nodes.insert(node.node_id, node).is_none());
+            nodes.insert(node.node_id, node);
         }
 
         // then, create the edges
         let mut edges = OrderedMap::new(|e: &Edge| e.innovation_number);
         let in_nodes = nodes.values().filter(|n| n.kind == NodeKind::InputNode);
+        let out_nodes = nodes.values().filter(|n| n.kind == NodeKind::OutputNode);
+
+        // TODO FEATURE @incomplete: use sparse connection?
         // the input nodes are fully connected to the output nodes
-        // TODO @incomplete: use sparse connection?
         for in_node in in_nodes {
-            let out_nodes = nodes.values().filter(|n| n.kind == NodeKind::OutputNode);
             for out_node in out_nodes {
                 let edge = Edge {
                     edge_id: EdgeId(Uuid::new_v4()),
                     in_node_id: in_node.node_id,
                     out_node_id: out_node.node_id,
                     weight: weight_dist.sample(rng),
-                    // TODO @incomplete: make this probability configurable
-                    enabled: rng.gen_bool(0.9),
-                    innovation_number: innovation_number_registry
-                        .get(in_node.node_id, out_node.node_id),
+                    enabled: rng.gen_bool(param.new_edge_enable_probability),
+                    innovation_number:
+                        innovation_number_registry
+                            .get(in_node.node_id, out_node.node_id),
                 };
-                assert!(edges.insert(edge.edge_id, edge).is_none());
+                edges.insert(edge.edge_id, edge);
             }
         }
 
@@ -71,35 +72,41 @@ fn create_initial_generation<D: Distribution<f64>, R: Rng>(
             edges,
             fitness,
         };
-        // println!("length of genome: {} nodes, {} edges", genome.nodes.len(), genome.edges.len());
-        assert!(genomes.insert(genome.genome_id, genome).is_none());
+        genomes.insert(genome.genome_id, genome);
     }
 
     let group0 = Group {
         group_sn: GroupSn(0),
         genomes,
     };
-
     let mut groups = HashMap::new();
     groups.insert(group0.group_sn, group0);
-
     Generation {
         generation_sn,
         groups,
     }
 }
 
+/// Run one simulation
 pub fn simulate(param: &Param) {
-    info!("simulation started");
+    let start_time = chrono::Local::now();
+    info!("simulation started at {}", start_time);
+
     let mut rng = rand::thread_rng();
     let weight_dist = Uniform::new(0.0, 1.0);
     let bias_dist = Uniform::new(0.0, 1.0);
+    let mut innovation_number_registry = InnovationNumberRegistry::new();
 
-    let mut gen = create_initial_generation(param.population_size, 3, 2, &weight_dist, &bias_dist, &mut rng);
+    let mut gen = create_initial_generation(
+        param, &mut innovation_number_registry, &weight_dist, &bias_dist, &mut rng);
     for _ in 1..param.num_generations {
         gen = evolve(&gen, param);
         store_gen(&gen);
     }
+
+    let stop_time = chrono::Local::now();
+    info!("simulation ended at {}", stop_time);
+    info!("simulation time cost {}", stop_time - start_time);
 }
 
 // TODO @incomplete: this may or may not be stable
