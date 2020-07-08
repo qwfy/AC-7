@@ -17,7 +17,7 @@ fn main() {
         .get_matches();
     setup_logger().unwrap();
     if let Some(matches) = matches.subcommand_matches("neat") {
-        ac7::neat::simulate(&ac7::neat::Param {
+        ac7::neat::simulate(&ac7::data::Param {
             num_generations: 100,
             compatibility_threshold: 3.0,
             c_disjoint: 2.0,

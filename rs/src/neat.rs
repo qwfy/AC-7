@@ -13,155 +13,9 @@ use rand::{
 };
 use rand::seq::SliceRandom;
 use uuid::Uuid;
+use std::panic::resume_unwind;
 
-pub struct Param {
-    pub num_generations: u32,
-    pub compatibility_threshold: f64,
-    pub c_excess: f64,
-    pub c_disjoint: f64,
-    pub c_common: f64,
-    pub population_size: u32,
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-enum NodeKind {
-    InputNode,
-    HiddenNode,
-    OutputNode,
-}
-
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
-struct NodeId(pub Uuid);
-
-struct Node {
-    node_id: NodeId,
-    kind: NodeKind,
-    bias: f64
-}
-
-impl Node {
-    /// Creates a new node with a random bias sampled from `bias_dist`
-    fn new<D: Distribution<f64>, R: Rng>(kind: NodeKind, bias_dist: &D, rng: &mut R) -> Node {
-        Node {
-            node_id: NodeId(Uuid::new_v4()),
-            kind,
-            bias: bias_dist.sample(rng)
-        }
-    }
-
-    fn make_copy(&self) -> Node {
-        Node {
-            node_id: self.node_id.clone(),
-            kind: self.kind.clone(),
-            bias: self.bias.clone()
-        }
-    }
-}
-
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
-struct EdgeId(pub Uuid);
-
-struct Edge {
-    edge_id: EdgeId,
-    in_node_id: NodeId,
-    out_node_id: NodeId,
-    enabled: bool,
-    weight: f64,
-    innovation_number: u128,
-}
-
-impl Edge {
-    fn make_copy(&self) -> Edge {
-        Edge {
-            edge_id: self.edge_id.clone(),
-            in_node_id: self.in_node_id.clone(),
-            out_node_id: self.out_node_id.clone(),
-            enabled: self.enabled.clone(),
-            weight: self.weight.clone(),
-            innovation_number: self.innovation_number.clone(),
-        }
-    }
-}
-
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
-struct GenomeId(pub Uuid);
-
-type Nodes = HashMap<NodeId, Node>;
-type Edges = OrderedMap<EdgeId, Edge, u128>;
-
-/// A `Genome` is a collection of `Node`s and `Edge`s
-struct Genome {
-    genome_id: GenomeId,
-    nodes: Nodes,
-    edges: Edges,
-    fitness: f64,
-}
-
-// Species.
-// Since the word "species" is both the singular and the plural form,
-// it can cause some confusion, use the word "group" instead.
-#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
-struct GroupSn(pub i32);
-
-type Genomes = HashMap<GenomeId, Genome>;
-
-/// A `Group` is a collection of `Genome`s
-struct Group {
-    group_sn: GroupSn,
-    genomes: Genomes,
-}
-
-struct GenerationSn(pub u32);
-
-impl GenerationSn {
-    fn succ(&self) -> GenerationSn {
-        let GenerationSn(old) = self;
-        GenerationSn(old + 1)
-    }
-}
-
-impl std::fmt::Display for GenerationSn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let GenerationSn(sn) = self;
-        write!(f, "GenerationSn({})", sn)
-    }
-}
-
-type Groups = HashMap<GroupSn, Group>;
-
-/// A `Generation` is a collection of `Group`s
-struct Generation {
-    generation_sn: GenerationSn,
-    groups: Groups,
-}
-
-struct InnovationNumberRegistry {
-    // the next available innovation number
-    next: u128,
-    registry: HashMap<(NodeId, NodeId), u128>,
-}
-
-impl InnovationNumberRegistry {
-    fn new() -> InnovationNumberRegistry {
-        InnovationNumberRegistry {
-            next: 0,
-            registry: HashMap::new(),
-        }
-    }
-
-    fn get(&mut self, in_node_id: NodeId, out_node_id: NodeId) -> u128 {
-        let key = (in_node_id, out_node_id);
-        match self.registry.get(&key) {
-            None => {
-                let innov = self.next;
-                self.next += 1;
-                self.registry.insert(key, innov);
-                innov
-            }
-            Some(x) => *x,
-        }
-    }
-}
+use crate::data::*;
 
 fn create_initial_generation<D: Distribution<f64>, R: Rng>(
     num_genomes: u32,
@@ -213,8 +67,8 @@ fn create_initial_generation<D: Distribution<f64>, R: Rng>(
         let fitness = calculate_fitness(&nodes, &edges);
         let genome = Genome {
             genome_id: GenomeId(Uuid::new_v4()),
-            nodes: nodes,
-            edges: edges,
+            nodes,
+            edges,
             fitness,
         };
         // println!("length of genome: {} nodes, {} edges", genome.nodes.len(), genome.edges.len());
@@ -223,15 +77,15 @@ fn create_initial_generation<D: Distribution<f64>, R: Rng>(
 
     let group0 = Group {
         group_sn: GroupSn(0),
-        genomes: genomes,
+        genomes,
     };
 
     let mut groups = HashMap::new();
     groups.insert(group0.group_sn, group0);
 
     Generation {
-        generation_sn: generation_sn,
-        groups: groups,
+        generation_sn,
+        groups,
     }
 }
 
@@ -556,4 +410,32 @@ fn find_genome_by_id<'a>(genome_id: &GenomeId, groups: &'a Groups) -> Option<&'a
 
 fn calculate_fitness(nodes: &Nodes, edges: &Edges) -> f64 {
     1.0
+    // let input_nodes = nodes.values().filter(|&node| node.kind == NodeKind::InputNode);
+    // let output_nodes = nodes.values().filter(|&node| node.kind == NodeKind::InputNode);
+    //
+    // let mut results = HashMap::new();
+    //
+    // for output_node in output_nodes {
+    //     walk_back(output_node, &mut results)
+    // }
+}
+
+fn value_of(start_node: &Node, all_nodes: &Nodes, all_edges: &Edges, results: &mut HashMap<NodeId, f64>, inputs: &HashMap<NodeId, f64>) -> f64 {
+    match results.get(&(start_node.node_id)) {
+        Some(x) => *x,
+        None => {
+            let input_edges = all_edges.descending_values()
+                .filter(|&edge| edge.out_node_id == start_node.node_id);
+
+            let mut value = 0.0;
+            for input_edge in input_edges {
+                let in_node_value = value_of(&all_nodes[&(input_edge.in_node_id)], all_nodes, all_edges, results, inputs);
+                value += in_node_value * input_edge.weight;
+            }
+            value += start_node.bias;
+
+            results.insert(start_node.node_id, value);
+            value
+        }
+    }
 }
