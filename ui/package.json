@@ -27,8 +27,8 @@
     "webpack-cli": "^3.2.3"
   },
   "dependencies": {
-    "vega": "^5.3.0",
-    "vega-embed": "^3.30.0",
+    "vega": "^5.22.1",
+    "vega-embed": "^6.21.0",
     "vega-lite": "^3.0.0-rc15"
   }
 }
